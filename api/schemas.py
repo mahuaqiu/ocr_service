@@ -62,6 +62,24 @@ class OCRResponse(BaseModel):
     error: Optional[str] = None
 
 
+class OCRTextRequest(BaseModel):
+    """OCR 纯文本请求。"""
+
+    image: str = Field(..., description="Base64 编码的图像数据")
+    lang: str = Field(default="ch", description="语言代码，默认中文")
+    separator: str = Field(default="\n", description="文本分隔符")
+    confidence_threshold: float = Field(default=0.0, ge=0.0, le=1.0, description="置信度阈值")
+
+
+class OCRTextResponse(BaseModel):
+    """OCR 纯文本响应。"""
+
+    status: str
+    text: str = ""
+    duration_ms: int = 0
+    error: Optional[str] = None
+
+
 # ==================== 图像匹配接口 ====================
 
 class ImageMatchRequest(BaseModel):
@@ -83,6 +101,32 @@ class ImageMatchResponse(BaseModel):
 
     status: str
     matches: list[MatchItemModel] = []
+    duration_ms: int = 0
+    error: Optional[str] = None
+
+
+class TextNearImageRequest(BaseModel):
+    """文本附近图片匹配请求。"""
+
+    source_image: str = Field(..., description="源图像（大图）Base64 编码")
+    template_image: str = Field(..., description="模板图像（小图）Base64 编码")
+    text: str = Field(..., description="目标文字")
+    max_distance: int = Field(default=200, ge=0, description="最大搜索距离（像素）")
+    confidence_threshold: float = Field(
+        default=0.8, ge=0.0, le=1.0, description="匹配阈值"
+    )
+    method: str = Field(
+        default="template", description="匹配方法: template(精确) / feature(特征)"
+    )
+
+
+class TextNearImageResponse(BaseModel):
+    """文本附近图片匹配响应。"""
+
+    status: str
+    text_position: Optional[PointModel] = Field(default=None, description="文字位置")
+    match: Optional[MatchItemModel] = Field(default=None, description="最近的匹配图片")
+    distance: Optional[int] = Field(default=None, description="距离（像素）")
     duration_ms: int = 0
     error: Optional[str] = None
 

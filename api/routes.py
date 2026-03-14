@@ -2,6 +2,8 @@
 API 路由定义。
 """
 
+import math
+
 from fastapi import APIRouter, HTTPException
 
 from ocr_service import __version__
@@ -11,6 +13,10 @@ from ocr_service.api.schemas import (
     ImageMatchResponse,
     OCRRequest,
     OCRResponse,
+    OCRTextRequest,
+    OCRTextResponse,
+    TextNearImageRequest,
+    TextNearImageResponse,
     TextBlockModel,
     PointModel,
     BoundingBoxModel,
@@ -97,6 +103,7 @@ async def ocr_find_text(request: OCRRequest):
         image_data=request.image,
         target_text=request.filter_text,
         confidence_threshold=request.confidence_threshold,
+        prefer_exact=True,
     )
 
     if text_block is None:
@@ -117,6 +124,47 @@ async def ocr_find_text(request: OCRRequest):
             )
         ],
         duration_ms=0,
+    )
+
+
+@router.post("/ocr/text", response_model=OCRTextResponse, tags=["OCR"])
+async def ocr_text(request: OCRTextRequest):
+    """
+    获取图片中的所有文本。
+
+    识别图片中的所有文字，返回拼接后的纯文本字符串。
+
+    Args:
+        request: OCR 文本请求，包含 Base64 编码的图像。
+
+    Returns:
+        OCRTextResponse: 拼接后的文本字符串。
+    """
+    engine = get_ocr_engine()
+    result = engine.recognize(
+        image_data=request.image,
+        lang=request.lang,
+        confidence_threshold=request.confidence_threshold,
+    )
+
+    if result.status != "success":
+        return OCRTextResponse(
+            status=result.status,
+            text="",
+            duration_ms=result.duration_ms,
+            error=result.error,
+        )
+
+    # 按阅读顺序排序（从上到下，从左到右）
+    sorted_texts = sorted(result.texts, key=lambda t: (t.center.y, t.center.x))
+
+    # 拼接文本
+    text = request.separator.join(t.text for t in sorted_texts)
+
+    return OCRTextResponse(
+        status="success",
+        text=text,
+        duration_ms=result.duration_ms,
     )
 
 
@@ -161,4 +209,99 @@ async def image_match(request: ImageMatchRequest):
         ],
         duration_ms=result.duration_ms,
         error=result.error,
+    )
+
+
+@router.post("/image/match_near_text", response_model=TextNearImageResponse, tags=["Image"])
+async def image_match_near_text(request: TextNearImageRequest):
+    """
+    查找文本附近最近的图片。
+
+    在源图像中查找目标文字位置，然后查找距离文字最近的模板图像位置。
+
+    Args:
+        request: 匹配请求。
+
+    Returns:
+        TextNearImageResponse: 匹配结果，包含文字位置、图片位置和距离。
+    """
+    import time
+    start_time = time.time()
+
+    # 1. 查找文字位置（精确匹配优先）
+    engine = get_ocr_engine()
+    text_block = engine.find_text(
+        image_data=request.source_image,
+        target_text=request.text,
+        prefer_exact=True,
+    )
+
+    if text_block is None:
+        return TextNearImageResponse(
+            status="success",
+            text_position=None,
+            match=None,
+            distance=None,
+            duration_ms=int((time.time() - start_time) * 1000),
+        )
+
+    text_center = text_block.center
+
+    # 2. 查找所有模板图片位置
+    matcher = get_image_matcher()
+    match_result = matcher.match(
+        source_data=request.source_image,
+        template_data=request.template_image,
+        threshold=request.confidence_threshold,
+        method=request.method,
+        multi_target=True,
+    )
+
+    if not match_result.matches:
+        return TextNearImageResponse(
+            status="success",
+            text_position=PointModel(x=text_center.x, y=text_center.y),
+            match=None,
+            distance=None,
+            duration_ms=int((time.time() - start_time) * 1000),
+        )
+
+    # 3. 计算每个匹配图片与文字的距离，找到最近的
+    def calc_distance(m):
+        return math.sqrt((m.center.x - text_center.x) ** 2 + (m.center.y - text_center.y) ** 2)
+
+    # 过滤超出最大距离的匹配，然后按距离排序
+    valid_matches = [
+        m for m in match_result.matches
+        if calc_distance(m) <= request.max_distance
+    ]
+
+    if not valid_matches:
+        return TextNearImageResponse(
+            status="success",
+            text_position=PointModel(x=text_center.x, y=text_center.y),
+            match=None,
+            distance=None,
+            duration_ms=int((time.time() - start_time) * 1000),
+        )
+
+    # 找到距离最近的匹配
+    nearest_match = min(valid_matches, key=calc_distance)
+    distance = int(calc_distance(nearest_match))
+
+    return TextNearImageResponse(
+        status="success",
+        text_position=PointModel(x=text_center.x, y=text_center.y),
+        match=MatchItemModel(
+            confidence=nearest_match.confidence,
+            bbox=BoundingBoxModel(
+                x=nearest_match.bbox.x,
+                y=nearest_match.bbox.y,
+                width=nearest_match.bbox.width,
+                height=nearest_match.bbox.height,
+            ),
+            center=PointModel(x=nearest_match.center.x, y=nearest_match.center.y),
+        ),
+        distance=distance,
+        duration_ms=int((time.time() - start_time) * 1000),
     )

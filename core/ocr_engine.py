@@ -109,6 +109,7 @@ class OCREngine:
         target_text: str,
         match_mode: str = "exact",
         confidence_threshold: float = 0.0,
+        prefer_exact: bool = True,
     ) -> Optional[TextBlock]:
         """
         在图片中查找指定文字。
@@ -118,6 +119,8 @@ class OCREngine:
             target_text: 目标文字。
             match_mode: 匹配模式，支持 exact（精确）、fuzzy（模糊）、regex（正则）。
             confidence_threshold: 置信度阈值。
+            prefer_exact: 是否优先精确匹配。若为 True，先查找完全相等的文字，
+                          未找到再查找包含匹配的文字。
 
         Returns:
             TextBlock | None: 找到的文字块，未找到返回 None。
@@ -127,6 +130,19 @@ class OCREngine:
         if result.status != "success":
             return None
 
+        # 精确匹配优先模式：先找完全相等，再找包含匹配
+        if prefer_exact and match_mode == "exact":
+            # 第一阶段：精确匹配（text == target）
+            for text_block in result.texts:
+                if text_block.text == target_text:
+                    return text_block
+            # 第二阶段：包含匹配（target in text）
+            for text_block in result.texts:
+                if target_text in text_block.text:
+                    return text_block
+            return None
+
+        # 非精确优先模式，使用原有匹配逻辑
         for text_block in result.texts:
             if self._match_text(text_block.text, target_text, match_mode):
                 return text_block
