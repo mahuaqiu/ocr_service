@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  ocr-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ocr-service:latest
+    container_name: ocr-service
+    ports:
+      - "9021:8081"
+    environment:
+      - OCR_HOST=0.0.0.0
+      - OCR_PORT=8081
+      - OCR_LANG=ch
+      - OCR_USE_GPU=false
+      - OCR_MATCH_THRESHOLD=0.8
+      - OCR_MATCH_METHOD=template
+    volumes:
+      # 挂载本地代码，方便开发调试
+      - .:/service/ocr_service
+      # 持久化模型缓存
+      - ocr-cache:/service/ocr_service/cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  ocr-cache:
