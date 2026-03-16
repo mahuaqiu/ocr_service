@@ -15,7 +15,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/service \
     OCR_HOST=0.0.0.0 \
     OCR_PORT=8081 \
-    OCR_LANG=ch
+    OCR_LANG=ch \
+    OCR_CACHE_DIR=/service/cache
 
 # 更换为阿里云国内源
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
@@ -39,11 +40,12 @@ COPY requirements.txt .
 # 安装 Python 依赖（使用清华大学镜像源）
 RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 复制应用代码到 /service/ocr_service 目录
-COPY . ./ocr_service
+# 复制应用代码
+COPY ocr_service ./ocr_service
+COPY pyproject.toml .
 
 # 创建缓存目录
-RUN mkdir -p /service/ocr_service/cache
+RUN mkdir -p /service/cache
 
 # 暴露端口
 EXPOSE 8081

@@ -16,11 +16,12 @@ services:
       - OCR_USE_GPU=false
       - OCR_MATCH_THRESHOLD=0.8
       - OCR_MATCH_METHOD=template
+      - OCR_CACHE_DIR=/service/cache
     volumes:
       # 挂载本地代码，方便开发调试
-      - .:/service/ocr_service
+      - ./ocr_service:/service/ocr_service
       # 持久化模型缓存
-      - ocr-cache:/service/ocr_service/cache
+      - ocr-cache:/service/cache
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]

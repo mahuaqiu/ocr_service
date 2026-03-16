@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ocr-service"
+version = "1.0.0"
+description = "基于 PaddleOCR 的文字识别和 OpenCV 图像匹配服务"
+requires-python = ">=3.8"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "pydantic>=2.0.0",
+    "paddleocr>=2.7.0",
+    "paddlepaddle>=2.5.0",
+    "opencv-python-headless>=4.8.0",
+    "Pillow>=10.0.0",
+    "numpy>=1.24.0",
+    "httpx>=0.24.0",
+]
+
+[project.scripts]
+ocr-service = "ocr_service.server:main"
+
+[tool.setuptools.packages.find]
+include = ["ocr_service*"]
