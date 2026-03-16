@@ -82,8 +82,8 @@ async def ocr_recognize(request: OCRRequest):
     )
 
 
-@router.post("/ocr/find", response_model=OCRResponse, tags=["OCR"])
-async def ocr_find_text(request: OCRRequest):
+@router.post("/ocr/get_coord_by_text", response_model=OCRResponse, tags=["OCR"])
+async def ocr_get_coord_by_text(request: OCRRequest):
     """
     查找指定文字。
 

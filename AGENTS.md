@@ -84,8 +84,10 @@ ocr_service/
 
 - `GET /health` - 健康检查
 - `POST /ocr/recognize` - 文字识别，返回所有文字及坐标
-- `POST /ocr/find` - 查找指定文字（filter_text 必填）
+- `POST /ocr/get_coord_by_text` - 查找指定文字（filter_text 必填）
+- `POST /ocr/text` - 获取图片中的所有文本（返回拼接后的纯文本）
 - `POST /image/match` - 图像匹配，在源图像中查找模板位置
+- `POST /image/match_near_text` - 文本附近图片匹配，先查找源图像中目标文字位置，再查找距离文字最近的模板图像位置
 
 所有图像输入均为 Base64 编码字符串。
 
