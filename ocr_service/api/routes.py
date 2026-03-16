@@ -55,10 +55,28 @@ async def ocr_recognize(request: OCRRequest):
         OCRResponse: 识别结果，包含文字列表和坐标。
     """
     engine = get_ocr_engine()
+
+    # 构建自定义 OCR 参数
+    custom_params = None
+    if any([request.det_db_thresh, request.det_db_box_thresh,
+            request.det_db_unclip_ratio, request.drop_score]):
+        custom_params = {}
+        if request.det_db_thresh is not None:
+            custom_params["det_db_thresh"] = request.det_db_thresh
+        if request.det_db_box_thresh is not None:
+            custom_params["det_db_box_thresh"] = request.det_db_box_thresh
+        if request.det_db_unclip_ratio is not None:
+            custom_params["det_db_unclip_ratio"] = request.det_db_unclip_ratio
+        if request.drop_score is not None:
+            custom_params["drop_score"] = request.drop_score
+
     result = engine.recognize(
         image_data=request.image,
         lang=request.lang,
         confidence_threshold=request.confidence_threshold,
+        preprocess_mode=request.preprocess_mode.value,
+        ocr_preset=request.ocr_preset.value,
+        custom_ocr_params=custom_params,
     )
 
     # 过滤文字
@@ -104,6 +122,8 @@ async def ocr_get_coord_by_text(request: OCRRequest):
         target_text=request.filter_text,
         confidence_threshold=request.confidence_threshold,
         prefer_exact=True,
+        preprocess_mode=request.preprocess_mode.value,
+        ocr_preset=request.ocr_preset.value,
     )
 
     if text_block is None:
@@ -145,6 +165,8 @@ async def ocr_text(request: OCRTextRequest):
         image_data=request.image,
         lang=request.lang,
         confidence_threshold=request.confidence_threshold,
+        preprocess_mode=request.preprocess_mode.value,
+        ocr_preset=request.ocr_preset.value,
     )
 
     if result.status != "success":

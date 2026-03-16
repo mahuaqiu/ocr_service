@@ -2,9 +2,30 @@
 API 请求/响应模型（Pydantic）。
 """
 
-from typing import Optional
+from enum import Enum
+from typing import Optional, Tuple, List
 
 from pydantic import BaseModel, Field
+
+
+# ==================== 枚举类型 ====================
+
+class PreprocessMode(str, Enum):
+    """预处理模式。"""
+    NONE = "none"  # 不预处理
+    AUTO = "auto"  # 自动检测（推荐）
+    SCREENSHOT = "screenshot"  # 桌面截图
+    MOBILE = "mobile"  # 移动端截图
+    DOCUMENT = "document"  # 文档图片
+    LOW_QUALITY = "low_quality"  # 低质量图片
+
+
+class OCRPreset(str, Enum):
+    """OCR 预设配置。"""
+    DEFAULT = "default"  # 默认配置
+    SCREENSHOT = "screenshot"  # 桌面截图优化
+    MOBILE = "mobile"  # 移动端优化
+    LOW_QUALITY = "low_quality"  # 低质量图片优化
 
 
 # ==================== 通用模型 ====================
@@ -52,6 +73,22 @@ class OCRRequest(BaseModel):
     filter_text: Optional[str] = Field(default=None, description="过滤关键词，只返回包含此文字的结果")
     confidence_threshold: float = Field(default=0.0, ge=0.0, le=1.0, description="置信度阈值")
 
+    # 新增参数
+    preprocess_mode: PreprocessMode = Field(
+        default=PreprocessMode.AUTO,
+        description="预处理模式: none/auto/screenshot/mobile/document/low_quality"
+    )
+    ocr_preset: OCRPreset = Field(
+        default=OCRPreset.DEFAULT,
+        description="OCR预设配置: default/screenshot/mobile/low_quality"
+    )
+
+    # 高级用户自定义参数
+    det_db_thresh: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="文本检测阈值")
+    det_db_box_thresh: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="文本框置信度阈值")
+    det_db_unclip_ratio: Optional[float] = Field(default=None, ge=1.0, le=3.0, description="文本框扩展比例")
+    drop_score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="低置信度过滤阈值")
+
 
 class OCRResponse(BaseModel):
     """OCR 识别响应。"""
@@ -69,6 +106,16 @@ class OCRTextRequest(BaseModel):
     lang: str = Field(default="ch", description="语言代码，默认中文")
     separator: str = Field(default="\n", description="文本分隔符")
     confidence_threshold: float = Field(default=0.0, ge=0.0, le=1.0, description="置信度阈值")
+
+    # 新增参数
+    preprocess_mode: PreprocessMode = Field(
+        default=PreprocessMode.AUTO,
+        description="预处理模式: none/auto/screenshot/mobile/document/low_quality"
+    )
+    ocr_preset: OCRPreset = Field(
+        default=OCRPreset.DEFAULT,
+        description="OCR预设配置: default/screenshot/mobile/low_quality"
+    )
 
 
 class OCRTextResponse(BaseModel):

@@ -1,3 +1,4 @@
 *.pyc
 /api/__pycache__
 /ocr_service.egg-info
+nul

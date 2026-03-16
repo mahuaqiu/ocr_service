@@ -10,13 +10,50 @@ services:
     ports:
       - "9021:8081"
     environment:
+      # ==================== 服务基础配置 ====================
+      # 监听地址
       - OCR_HOST=0.0.0.0
+      # 监听端口
       - OCR_PORT=8081
+      # 调试模式
+      - OCR_DEBUG=false
+
+      # ==================== OCR 引擎配置 ====================
+      # OCR 语言 (ch=中文, en=英文, korean=韩文等)
       - OCR_LANG=ch
+      # 是否使用 GPU 加速
       - OCR_USE_GPU=false
-      - OCR_MATCH_THRESHOLD=0.8
-      - OCR_MATCH_METHOD=template
+      # 自定义模型目录 (可选)
+      # - OCR_MODEL_DIR=
+      # 模型缓存目录
       - OCR_CACHE_DIR=/service/cache
+
+      # ==================== OCR 高级参数 ====================
+      # 文本检测阈值，值越小检测越敏感，可能检测到更多小字 (0.0-1.0)
+      - OCR_DET_DB_THRESH=0.3
+      # 文本框置信度阈值，值越小保留越多检测结果 (0.0-1.0)
+      - OCR_DET_DB_BOX_THRESH=0.6
+      # 文本框扩展比例，值越大文本框越大，可解决文字截断问题 (1.0-3.0)
+      - OCR_DET_DB_UNCLIP_RATIO=1.5
+      # 低置信度结果过滤阈值，值越小保留越多结果 (0.0-1.0)
+      - OCR_DROP_SCORE=0.5
+
+      # ==================== 图像预处理配置 ====================
+      # 是否启用图像预处理 (true/false)
+      - OCR_PREPROCESS_ENABLED=true
+      # 是否自动缩放大图，建议开启以优化性能 (true/false)
+      - OCR_AUTO_RESIZE_ENABLED=true
+      # 最大图像宽度（像素），超过此值自动缩放
+      - OCR_MAX_IMAGE_WIDTH=1920
+      # 最大图像高度（像素），超过此值自动缩放
+      - OCR_MAX_IMAGE_HEIGHT=1080
+
+      # ==================== 图像匹配配置 ====================
+      # 默认匹配阈值 (0.0-1.0)
+      - OCR_MATCH_THRESHOLD=0.8
+      # 默认匹配方法 (template=精确匹配, feature=特征匹配)
+      - OCR_MATCH_METHOD=template
+
     volumes:
       # 挂载本地代码，方便开发调试
       - ./ocr_service:/service/ocr_service

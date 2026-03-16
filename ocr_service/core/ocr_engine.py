@@ -6,13 +6,48 @@ OCR 引擎封装。
 
 import re
 import time
-from typing import Optional
+from typing import Optional, Dict, Any, List, Tuple
 
 import numpy as np
 
 from ocr_service.config import ServiceConfig, get_config
 from ocr_service.models.ocr_result import TextBlock, OCRResult, Point
 from ocr_service.utils.image_utils import decode_image
+from ocr_service.core.image_preprocessor import (
+    ImagePreprocessor,
+    PreprocessMode,
+    PreprocessResult,
+    get_image_preprocessor,
+)
+
+
+# OCR 预设配置
+OCR_PRESETS: Dict[str, Dict[str, Any]] = {
+    "default": {
+        "det_db_thresh": 0.3,
+        "det_db_box_thresh": 0.6,
+        "det_db_unclip_ratio": 1.5,
+        "drop_score": 0.5,
+    },
+    "screenshot": {
+        "det_db_thresh": 0.2,  # 降低阈值，提高小字检测
+        "det_db_box_thresh": 0.5,
+        "det_db_unclip_ratio": 1.8,  # 扩大文本框
+        "drop_score": 0.4,
+    },
+    "mobile": {
+        "det_db_thresh": 0.2,
+        "det_db_box_thresh": 0.5,
+        "det_db_unclip_ratio": 1.6,
+        "drop_score": 0.4,
+    },
+    "low_quality": {
+        "det_db_thresh": 0.15,  # 更低的阈值
+        "det_db_box_thresh": 0.4,
+        "det_db_unclip_ratio": 2.0,
+        "drop_score": 0.3,
+    },
+}
 
 
 class OCREngine:
@@ -24,6 +59,7 @@ class OCREngine:
     Attributes:
         config: 服务配置。
         _ocr: PaddleOCR 实例（延迟加载）。
+        _preprocessor: 图像预处理器。
     """
 
     def __init__(self, config: Optional[ServiceConfig] = None):
@@ -35,28 +71,61 @@ class OCREngine:
         """
         self.config = config or get_config()
         self._ocr = None
+        self._preprocessor: Optional[ImagePreprocessor] = None
+
+    @property
+    def preprocessor(self) -> ImagePreprocessor:
+        """延迟加载预处理器。"""
+        if self._preprocessor is None:
+            self._preprocessor = get_image_preprocessor()
+        return self._preprocessor
 
     @property
     def ocr(self):
         """延迟加载 PaddleOCR 实例。"""
         if self._ocr is None:
-            from paddleocr import PaddleOCR
-
-            self._ocr = PaddleOCR(
-                use_angle_cls=True,
-                lang=self.config.ocr_lang,
-                use_gpu=self.config.ocr_use_gpu,
-                show_log=False,
-                # 禁用自动下载模型到用户目录，使用缓存目录
-                model_storage_directory=self.config.cache_dir,
-            )
+            self._ocr = self._create_ocr_instance()
         return self._ocr
+
+    def _create_ocr_instance(self, custom_params: Optional[Dict[str, Any]] = None):
+        """创建 PaddleOCR 实例。
+
+        Args:
+            custom_params: 自定义参数，会覆盖默认配置。
+
+        Returns:
+            PaddleOCR 实例。
+        """
+        from paddleocr import PaddleOCR
+
+        # 基础参数
+        params = {
+            "use_angle_cls": True,
+            "lang": self.config.ocr_lang,
+            "use_gpu": self.config.ocr_use_gpu,
+            "show_log": False,
+            "model_storage_directory": self.config.cache_dir,
+            # 高级参数
+            "det_db_thresh": self.config.ocr_det_db_thresh,
+            "det_db_box_thresh": self.config.ocr_det_db_box_thresh,
+            "det_db_unclip_ratio": self.config.ocr_det_db_unclip_ratio,
+            "drop_score": self.config.ocr_drop_score,
+        }
+
+        # 自定义参数覆盖
+        if custom_params:
+            params.update(custom_params)
+
+        return PaddleOCR(**params)
 
     def recognize(
         self,
         image_data: bytes | str,
         lang: Optional[str] = None,
         confidence_threshold: float = 0.0,
+        preprocess_mode: str = PreprocessMode.AUTO,
+        ocr_preset: str = "default",
+        custom_ocr_params: Optional[Dict[str, Any]] = None,
     ) -> OCRResult:
         """
         识别图片中的所有文字。
@@ -65,6 +134,9 @@ class OCREngine:
             image_data: 图像字节数据或 Base64 编码字符串。
             lang: 语言代码，默认使用配置中的语言。
             confidence_threshold: 置信度阈值，低于此值的结果将被过滤。
+            preprocess_mode: 预处理模式。
+            ocr_preset: OCR 预设配置。
+            custom_ocr_params: 自定义 OCR 参数。
 
         Returns:
             OCRResult: 识别结果。
@@ -75,8 +147,24 @@ class OCREngine:
             # 解码图像
             image = decode_image(image_data)
 
+            # 预处理图像
+            preprocess_result = self.preprocessor.preprocess(image, mode=preprocess_mode)
+            processed_image = preprocess_result.image
+            scale = preprocess_result.scale
+
+            # 获取 OCR 参数
+            ocr_params = OCR_PRESETS.get(ocr_preset, OCR_PRESETS["default"])
+            if custom_ocr_params:
+                ocr_params = {**ocr_params, **custom_ocr_params}
+
+            # 选择 OCR 实例
+            if ocr_preset == "default" and custom_ocr_params is None:
+                ocr_instance = self.ocr
+            else:
+                ocr_instance = self._create_ocr_instance(ocr_params)
+
             # 执行 OCR
-            result = self.ocr.ocr(image, cls=True)
+            result = ocr_instance.ocr(processed_image, cls=True)
 
             # 解析结果
             texts = []
@@ -84,6 +172,9 @@ class OCREngine:
                 for item in result[0]:
                     text_block = TextBlock.from_paddle_result(item)
                     if text_block.confidence >= confidence_threshold:
+                        # 如果图像被缩放，还原坐标
+                        if scale < 1.0:
+                            text_block = self._restore_coordinates(text_block, scale)
                         texts.append(text_block)
 
             duration_ms = int((time.time() - start_time) * 1000)
@@ -103,6 +194,41 @@ class OCREngine:
                 error=str(e),
             )
 
+    def _restore_coordinates(self, text_block: TextBlock, scale: float) -> TextBlock:
+        """还原缩放后的坐标。
+
+        Args:
+            text_block: 原始文字块。
+            scale: 缩放比例。
+
+        Returns:
+            TextBlock: 坐标还原后的文字块。
+        """
+        # 还原边界框
+        restored_bbox = []
+        for point in text_block.bbox:
+            restored_bbox.append(Point(
+                x=int(point.x / scale),
+                y=int(point.y / scale),
+            ))
+
+        # 还原边界矩形
+        restored_bounding_box = TextBlock._compute_bounding_box(restored_bbox)
+
+        # 还原中心点
+        restored_center = Point(
+            x=int(text_block.center.x / scale),
+            y=int(text_block.center.y / scale),
+        )
+
+        return TextBlock(
+            text=text_block.text,
+            confidence=text_block.confidence,
+            bbox=restored_bbox,
+            bounding_box=restored_bounding_box,
+            center=restored_center,
+        )
+
     def find_text(
         self,
         image_data: bytes | str,
@@ -110,6 +236,8 @@ class OCREngine:
         match_mode: str = "exact",
         confidence_threshold: float = 0.0,
         prefer_exact: bool = True,
+        preprocess_mode: str = PreprocessMode.AUTO,
+        ocr_preset: str = "default",
     ) -> Optional[TextBlock]:
         """
         在图片中查找指定文字。
@@ -121,11 +249,18 @@ class OCREngine:
             confidence_threshold: 置信度阈值。
             prefer_exact: 是否优先精确匹配。若为 True，先查找完全相等的文字，
                           未找到再查找包含匹配的文字。
+            preprocess_mode: 预处理模式。
+            ocr_preset: OCR 预设配置。
 
         Returns:
             TextBlock | None: 找到的文字块，未找到返回 None。
         """
-        result = self.recognize(image_data, confidence_threshold=confidence_threshold)
+        result = self.recognize(
+            image_data,
+            confidence_threshold=confidence_threshold,
+            preprocess_mode=preprocess_mode,
+            ocr_preset=ocr_preset,
+        )
 
         if result.status != "success":
             return None
@@ -155,6 +290,8 @@ class OCREngine:
         target_text: str,
         match_mode: str = "exact",
         confidence_threshold: float = 0.0,
+        preprocess_mode: str = PreprocessMode.AUTO,
+        ocr_preset: str = "default",
     ) -> list[TextBlock]:
         """
         在图片中查找所有匹配的文字。
@@ -164,11 +301,18 @@ class OCREngine:
             target_text: 目标文字。
             match_mode: 匹配模式。
             confidence_threshold: 置信度阈值。
+            preprocess_mode: 预处理模式。
+            ocr_preset: OCR 预设配置。
 
         Returns:
             list[TextBlock]: 匹配的文字块列表。
         """
-        result = self.recognize(image_data, confidence_threshold=confidence_threshold)
+        result = self.recognize(
+            image_data,
+            confidence_threshold=confidence_threshold,
+            preprocess_mode=preprocess_mode,
+            ocr_preset=ocr_preset,
+        )
 
         if result.status != "success":
             return []
