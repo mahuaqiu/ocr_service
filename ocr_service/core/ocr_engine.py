@@ -302,6 +302,7 @@ class OCREngine:
         target_text: str,
         match_mode: str = "exact",
         confidence_threshold: float = 0.0,
+        prefer_exact: bool = True,
         preprocess_mode: str = PreprocessMode.AUTO,
         ocr_preset: str = "default",
     ) -> list[TextBlock]:
@@ -313,6 +314,8 @@ class OCREngine:
             target_text: 目标文字。
             match_mode: 匹配模式。
             confidence_threshold: 置信度阈值。
+            prefer_exact: 是否优先精确匹配。若为 True，先查找完全相等的文字，
+                          未找到再查找包含匹配的文字。
             preprocess_mode: 预处理模式。
             ocr_preset: OCR 预设配置。
 
@@ -329,6 +332,21 @@ class OCREngine:
         if result.status != "success":
             return []
 
+        # 精确匹配优先模式：先找完全相等，再找包含匹配
+        if prefer_exact and match_mode == "exact":
+            matches = []
+            # 第一阶段：精确匹配（text == target）
+            for text_block in result.texts:
+                if text_block.text == target_text:
+                    matches.append(text_block)
+            # 第二阶段：包含匹配（target in text），排除已匹配的
+            if not matches:
+                for text_block in result.texts:
+                    if target_text in text_block.text:
+                        matches.append(text_block)
+            return matches
+
+        # 非精确优先模式，使用原有匹配逻辑
         matches = []
         for text_block in result.texts:
             if self._match_text(text_block.text, target_text, match_mode):

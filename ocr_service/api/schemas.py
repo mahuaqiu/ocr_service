@@ -95,6 +95,7 @@ class OCRResponse(BaseModel):
 
     status: str
     texts: list[TextBlockModel] = []
+    coords: list[PointModel] = []  # 简洁的坐标数组 [(x1,y1),(x2,y2),...]
     duration_ms: int = 0
     error: Optional[str] = None
 

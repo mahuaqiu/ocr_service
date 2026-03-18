@@ -3,6 +3,7 @@ API 路由定义。
 """
 
 import math
+import re
 
 from fastapi import APIRouter, HTTPException
 
@@ -28,6 +29,45 @@ from ocr_service.core.image_matcher import get_image_matcher
 router = APIRouter()
 
 
+def parse_filter_text(filter_text: str) -> tuple[str, str]:
+    """
+    解析 filter_text，支持正则表达式格式。
+
+    Args:
+        filter_text: 过滤文本，支持 "reg_xxx" 格式表示正则表达式
+
+    Returns:
+        (match_mode, pattern): match_mode 为 "regex" 或 "exact"，pattern 为匹配模式
+    """
+    if filter_text.startswith("reg_"):
+        return ("regex", filter_text[4:])  # 去掉 "reg_" 前缀
+    return ("exact", filter_text)
+
+
+def filter_texts(texts: list, filter_text: str) -> list:
+    """
+    根据 filter_text 过滤文字块。
+
+    Args:
+        texts: 文字块列表
+        filter_text: 过滤文本，支持 "reg_xxx" 格式表示正则表达式
+
+    Returns:
+        过滤后的文字块列表
+    """
+    match_mode, pattern = parse_filter_text(filter_text)
+
+    if match_mode == "regex":
+        try:
+            regex = re.compile(pattern)
+            return [t for t in texts if regex.search(t.text)]
+        except re.error:
+            # 正则表达式无效，回退到包含匹配
+            return [t for t in texts if pattern in t.text]
+    else:
+        return [t for t in texts if pattern in t.text]
+
+
 # ==================== OCR 接口 ====================
 
 @router.get("/health", response_model=HealthResponse, tags=["Health"])
@@ -42,7 +82,7 @@ async def health_check():
 
 
 @router.post("/ocr/get_ocr_infos", response_model=OCRResponse, tags=["OCR"])
-async def ocr_recognize(request: OCRRequest):
+async def get_ocr_infos(request: OCRRequest):
     """
     文字识别。
 
@@ -82,7 +122,7 @@ async def ocr_recognize(request: OCRRequest):
     # 过滤文字
     texts = result.texts
     if request.filter_text:
-        texts = [t for t in texts if request.filter_text in t.text]
+        texts = filter_texts(texts, request.filter_text)
 
     return OCRResponse(
         status=result.status,
@@ -93,6 +133,10 @@ async def ocr_recognize(request: OCRRequest):
                 bbox=t.bbox,
                 center=PointModel(x=t.center.x, y=t.center.y),
             )
+            for t in texts
+        ],
+        coords=[
+            PointModel(x=t.center.x, y=t.center.y)
             for t in texts
         ],
         duration_ms=result.duration_ms,
@@ -106,30 +150,64 @@ async def ocr_get_coord_by_text(request: OCRRequest):
     查找指定文字。
 
     在图片中查找指定的文字，返回匹配的文字和坐标。
+    返回所有匹配结果，texts 按顺序 [1,2,...]，coords 为对应的中心点坐标 [(x1,y1),(x2,y2),...]
+
+    filter_text 支持格式：
+    - 普通文本：直接进行包含匹配
+    - 正则表达式：以 "reg_" 开头，如 "reg_雨[大中小]" 表示匹配 "雨大"、"雨中"、"雨小"
 
     Args:
         request: OCR 请求，filter_text 为必填字段。
 
     Returns:
-        OCRResponse: 匹配结果。
+        OCRResponse: 匹配结果，包含 texts 和 coords 字段。
     """
     if not request.filter_text:
         raise HTTPException(status_code=400, detail="filter_text is required")
 
     engine = get_ocr_engine()
-    text_block = engine.find_text(
-        image_data=request.image,
-        target_text=request.filter_text,
-        confidence_threshold=request.confidence_threshold,
-        prefer_exact=True,
-        preprocess_mode=request.preprocess_mode.value,
-        ocr_preset=request.ocr_preset.value,
-    )
+    match_mode, pattern = parse_filter_text(request.filter_text)
 
-    if text_block is None:
+    # 使用正则匹配模式
+    if match_mode == "regex":
+        # 先识别所有文字，再进行正则过滤
+        result = engine.recognize(
+            image_data=request.image,
+            confidence_threshold=request.confidence_threshold,
+            preprocess_mode=request.preprocess_mode.value,
+            ocr_preset=request.ocr_preset.value,
+        )
+        if result.status != "success" or not result.texts:
+            return OCRResponse(
+                status="success",
+                texts=[],
+                coords=[],
+                duration_ms=0,
+            )
+
+        # 正则过滤
+        try:
+            regex = re.compile(pattern)
+            text_blocks = [t for t in result.texts if regex.search(t.text)]
+        except re.error:
+            # 正则表达式无效，回退到包含匹配
+            text_blocks = [t for t in result.texts if pattern in t.text]
+    else:
+        # 普通模式：使用 find_all_texts
+        text_blocks = engine.find_all_texts(
+            image_data=request.image,
+            target_text=pattern,
+            confidence_threshold=request.confidence_threshold,
+            prefer_exact=True,
+            preprocess_mode=request.preprocess_mode.value,
+            ocr_preset=request.ocr_preset.value,
+        )
+
+    if not text_blocks:
         return OCRResponse(
             status="success",
             texts=[],
+            coords=[],
             duration_ms=0,
         )
 
@@ -137,11 +215,16 @@ async def ocr_get_coord_by_text(request: OCRRequest):
         status="success",
         texts=[
             TextBlockModel(
-                text=text_block.text,
-                confidence=text_block.confidence,
-                bbox=text_block.bbox,
-                center=PointModel(x=text_block.center.x, y=text_block.center.y),
+                text=tb.text,
+                confidence=tb.confidence,
+                bbox=tb.bbox,
+                center=PointModel(x=tb.center.x, y=tb.center.y),
             )
+            for tb in text_blocks
+        ],
+        coords=[
+            PointModel(x=tb.center.x, y=tb.center.y)
+            for tb in text_blocks
         ],
         duration_ms=0,
     )
