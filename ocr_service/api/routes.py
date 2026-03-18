@@ -343,12 +343,22 @@ async def image_match_near_text(request: TextNearImageRequest):
     import time
     start_time = time.time()
 
-    # 1. 查找文字位置（精确匹配优先）
+    # 1. 查找文字位置
+    # 判断是否为正则表达式（以 reg_ 开头）
+    filter_text = request.filter_text
+    if filter_text.startswith("reg_"):
+        match_mode = "regex"
+        target_text = filter_text[4:]  # 去掉 reg_ 前缀
+    else:
+        match_mode = "exact"
+        target_text = filter_text
+
     engine = get_ocr_engine()
     text_block = engine.find_text(
-        image_data=request.source_image,
-        target_text=request.text,
-        prefer_exact=True,
+        image_data=request.image,
+        target_text=target_text,
+        match_mode=match_mode,
+        prefer_exact=(match_mode == "exact"),
     )
 
     if text_block is None:
@@ -366,8 +376,8 @@ async def image_match_near_text(request: TextNearImageRequest):
     # 2. 查找所有模板图片位置
     matcher = get_image_matcher()
     match_result = matcher.match(
-        source_data=request.source_image,
-        template_data=request.template_image,
+        source_data=request.image,
+        template_data=request.target_image,
         threshold=request.confidence_threshold,
         method=request.method,
         multi_target=True,
