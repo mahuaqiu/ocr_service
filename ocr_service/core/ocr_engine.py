@@ -4,11 +4,15 @@ OCR 引擎封装。
 基于 PaddleOCR 实现文字识别，支持中英文等多语言。
 """
 
+import logging
 import re
 import time
 from typing import Optional, Dict, Any, List, Tuple
 
 import numpy as np
+
+# 获取日志记录器
+logger = logging.getLogger(__name__)
 
 from ocr_service.config import ServiceConfig, get_config
 from ocr_service.models.ocr_result import TextBlock, OCRResult, Point
@@ -98,18 +102,26 @@ class OCREngine:
         """
         from paddleocr import PaddleOCR
 
-        # 基础参数 (PaddleOCR 3.3 兼容)
+        # PaddleOCR 3.x 参数
         params = {
-            "use_textline_orientation": True,
             "lang": self.config.ocr_lang,
             "device": "gpu" if self.config.ocr_use_gpu else "cpu",
             "ocr_version": self.config.ocr_version,
-            # 高级参数
-            "text_det_thresh": self.config.ocr_det_db_thresh,
-            "text_det_box_thresh": self.config.ocr_det_db_box_thresh,
-            "text_det_unclip_ratio": self.config.ocr_det_db_unclip_ratio,
-            "text_rec_score_thresh": self.config.ocr_drop_score,
+            # 禁用不必要的功能
+            "use_doc_orientation_classify": False,
+            "use_doc_unwarping": False,
+            "use_textline_orientation": False,
         }
+
+        # 高级参数
+        if hasattr(self.config, 'ocr_det_db_thresh'):
+            params["text_det_thresh"] = self.config.ocr_det_db_thresh
+        if hasattr(self.config, 'ocr_det_db_box_thresh'):
+            params["text_det_box_thresh"] = self.config.ocr_det_db_box_thresh
+        if hasattr(self.config, 'ocr_det_db_unclip_ratio'):
+            params["text_det_unclip_ratio"] = self.config.ocr_det_db_unclip_ratio
+        if hasattr(self.config, 'ocr_drop_score'):
+            params["text_rec_score_thresh"] = self.config.ocr_drop_score
 
         # 自定义参数覆盖
         if custom_params:
@@ -162,21 +174,21 @@ class OCREngine:
             else:
                 ocr_instance = self._create_ocr_instance(ocr_params)
 
-            # 执行 OCR
-            result = ocr_instance.ocr(processed_image, cls=True)
+            # 执行 OCR (PaddleOCR 3.x 使用 predict 方法)
+            ocr_result = ocr_instance.predict(processed_image)
 
-            # 解析结果
-            texts = []
-            if result and result[0]:
-                for item in result[0]:
-                    text_block = TextBlock.from_paddle_result(item)
-                    if text_block.confidence >= confidence_threshold:
-                        # 如果图像被缩放，还原坐标
-                        if scale < 1.0:
-                            text_block = self._restore_coordinates(text_block, scale)
-                        texts.append(text_block)
+            # 解析 PaddleOCR 3.x 结果
+            texts = OCRResult.parse_from_paddleocr(ocr_result, confidence_threshold, scale)
 
             duration_ms = int((time.time() - start_time) * 1000)
+
+            # 记录识别结果日志
+            if texts:
+                logger.info(f"OCR识别成功: 识别到 {len(texts)} 个文字块, 耗时 {duration_ms}ms")
+                for i, tb in enumerate(texts):
+                    logger.info(f"  [{i+1}] 文本: {tb.text}, 置信度: {tb.confidence:.2f}, 坐标: ({tb.center.x}, {tb.center.y})")
+            else:
+                logger.warning(f"OCR识别成功但未检测到文字, 耗时 {duration_ms}ms")
 
             return OCRResult(
                 status="success",
@@ -185,6 +197,7 @@ class OCREngine:
             )
 
         except Exception as e:
+            logger.exception("OCR识别失败")
             duration_ms = int((time.time() - start_time) * 1000)
             return OCRResult(
                 status="error",
