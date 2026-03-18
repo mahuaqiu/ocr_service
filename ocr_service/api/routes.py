@@ -41,7 +41,7 @@ async def health_check():
     return HealthResponse(status="healthy", version=__version__)
 
 
-@router.post("/ocr/recognize", response_model=OCRResponse, tags=["OCR"])
+@router.post("/ocr/get_ocr_infos", response_model=OCRResponse, tags=["OCR"])
 async def ocr_recognize(request: OCRRequest):
     """
     文字识别。
@@ -56,19 +56,19 @@ async def ocr_recognize(request: OCRRequest):
     """
     engine = get_ocr_engine()
 
-    # 构建自定义 OCR 参数
+    # 构建自定义 OCR 参数 (PaddleOCR 3.3 兼容)
     custom_params = None
-    if any([request.det_db_thresh, request.det_db_box_thresh,
-            request.det_db_unclip_ratio, request.drop_score]):
+    if any([request.text_det_thresh, request.text_det_box_thresh,
+            request.text_det_unclip_ratio, request.text_rec_score_thresh]):
         custom_params = {}
-        if request.det_db_thresh is not None:
-            custom_params["det_db_thresh"] = request.det_db_thresh
-        if request.det_db_box_thresh is not None:
-            custom_params["det_db_box_thresh"] = request.det_db_box_thresh
-        if request.det_db_unclip_ratio is not None:
-            custom_params["det_db_unclip_ratio"] = request.det_db_unclip_ratio
-        if request.drop_score is not None:
-            custom_params["drop_score"] = request.drop_score
+        if request.text_det_thresh is not None:
+            custom_params["text_det_thresh"] = request.text_det_thresh
+        if request.text_det_box_thresh is not None:
+            custom_params["text_det_box_thresh"] = request.text_det_box_thresh
+        if request.text_det_unclip_ratio is not None:
+            custom_params["text_det_unclip_ratio"] = request.text_det_unclip_ratio
+        if request.text_rec_score_thresh is not None:
+            custom_params["text_rec_score_thresh"] = request.text_rec_score_thresh
 
     result = engine.recognize(
         image_data=request.image,
@@ -147,7 +147,7 @@ async def ocr_get_coord_by_text(request: OCRRequest):
     )
 
 
-@router.post("/ocr/text", response_model=OCRTextResponse, tags=["OCR"])
+@router.post("/ocr/get_ocr_texts", response_model=OCRTextResponse, tags=["OCR"])
 async def ocr_text(request: OCRTextRequest):
     """
     获取图片中的所有文本。

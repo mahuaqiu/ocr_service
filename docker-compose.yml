@@ -21,6 +21,8 @@ services:
       # ==================== OCR 引擎配置 ====================
       # OCR 语言 (ch=中文, en=英文, korean=韩文等)
       - OCR_LANG=ch
+      # OCR 模型版本 (PP-OCRv3 / PP-OCRv4 / PP-OCRv5)
+      - OCR_VERSION=PP-OCRv4
       # 是否使用 GPU 加速
       - OCR_USE_GPU=false
       # 自定义模型目录 (可选)

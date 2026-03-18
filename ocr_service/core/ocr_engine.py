@@ -21,31 +21,31 @@ from ocr_service.core.image_preprocessor import (
 )
 
 
-# OCR 预设配置
+# OCR 预设配置 (PaddleOCR 3.3 兼容)
 OCR_PRESETS: Dict[str, Dict[str, Any]] = {
     "default": {
-        "det_db_thresh": 0.3,
-        "det_db_box_thresh": 0.6,
-        "det_db_unclip_ratio": 1.5,
-        "drop_score": 0.5,
+        "text_det_thresh": 0.3,
+        "text_det_box_thresh": 0.6,
+        "text_det_unclip_ratio": 1.5,
+        "text_rec_score_thresh": 0.5,
     },
     "screenshot": {
-        "det_db_thresh": 0.2,  # 降低阈值，提高小字检测
-        "det_db_box_thresh": 0.5,
-        "det_db_unclip_ratio": 1.8,  # 扩大文本框
-        "drop_score": 0.4,
+        "text_det_thresh": 0.2,  # 降低阈值，提高小字检测
+        "text_det_box_thresh": 0.5,
+        "text_det_unclip_ratio": 1.8,  # 扩大文本框
+        "text_rec_score_thresh": 0.4,
     },
     "mobile": {
-        "det_db_thresh": 0.2,
-        "det_db_box_thresh": 0.5,
-        "det_db_unclip_ratio": 1.6,
-        "drop_score": 0.4,
+        "text_det_thresh": 0.2,
+        "text_det_box_thresh": 0.5,
+        "text_det_unclip_ratio": 1.6,
+        "text_rec_score_thresh": 0.4,
     },
     "low_quality": {
-        "det_db_thresh": 0.15,  # 更低的阈值
-        "det_db_box_thresh": 0.4,
-        "det_db_unclip_ratio": 2.0,
-        "drop_score": 0.3,
+        "text_det_thresh": 0.15,  # 更低的阈值
+        "text_det_box_thresh": 0.4,
+        "text_det_unclip_ratio": 2.0,
+        "text_rec_score_thresh": 0.3,
     },
 }
 
@@ -98,18 +98,17 @@ class OCREngine:
         """
         from paddleocr import PaddleOCR
 
-        # 基础参数
+        # 基础参数 (PaddleOCR 3.3 兼容)
         params = {
-            "use_angle_cls": True,
+            "use_textline_orientation": True,
             "lang": self.config.ocr_lang,
-            "use_gpu": self.config.ocr_use_gpu,
-            "show_log": False,
-            "model_storage_directory": self.config.cache_dir,
+            "device": "gpu" if self.config.ocr_use_gpu else "cpu",
+            "ocr_version": self.config.ocr_version,
             # 高级参数
-            "det_db_thresh": self.config.ocr_det_db_thresh,
-            "det_db_box_thresh": self.config.ocr_det_db_box_thresh,
-            "det_db_unclip_ratio": self.config.ocr_det_db_unclip_ratio,
-            "drop_score": self.config.ocr_drop_score,
+            "text_det_thresh": self.config.ocr_det_db_thresh,
+            "text_det_box_thresh": self.config.ocr_det_db_box_thresh,
+            "text_det_unclip_ratio": self.config.ocr_det_db_unclip_ratio,
+            "text_rec_score_thresh": self.config.ocr_drop_score,
         }
 
         # 自定义参数覆盖

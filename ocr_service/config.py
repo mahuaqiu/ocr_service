@@ -18,6 +18,7 @@ class ServiceConfig:
     # OCR 引擎配置
     ocr_lang: str = "ch"  # 默认中文
     ocr_use_gpu: bool = False
+    ocr_version: str = "PP-OCRv4"  # PP-OCRv3 / PP-OCRv4 / PP-OCRv5
     ocr_model_dir: str | None = None  # 自定义模型目录
 
     # OCR 高级参数
@@ -48,6 +49,7 @@ class ServiceConfig:
             debug=os.getenv("OCR_DEBUG", "false").lower() == "true",
             ocr_lang=os.getenv("OCR_LANG", "ch"),
             ocr_use_gpu=os.getenv("OCR_USE_GPU", "false").lower() == "true",
+            ocr_version=os.getenv("OCR_VERSION", "PP-OCRv4"),
             ocr_model_dir=os.getenv("OCR_MODEL_DIR") or None,
             # OCR 高级参数
             ocr_det_db_thresh=float(os.getenv("OCR_DET_DB_THRESH", "0.3")),

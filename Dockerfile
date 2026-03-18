@@ -1,7 +1,7 @@
 # OCR Service Dockerfile
 # 基于 PaddleOCR 的文字识别和图像匹配服务
 
-FROM python:3.10-slim-bookworm
+FROM python:3.11.13-slim-bookworm
 
 LABEL maintainer="OCR Service"
 LABEL description="OCR and Image Matching Service"

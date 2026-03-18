@@ -83,11 +83,11 @@ class OCRRequest(BaseModel):
         description="OCR预设配置: default/screenshot/mobile/low_quality"
     )
 
-    # 高级用户自定义参数
-    det_db_thresh: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="文本检测阈值")
-    det_db_box_thresh: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="文本框置信度阈值")
-    det_db_unclip_ratio: Optional[float] = Field(default=None, ge=1.0, le=3.0, description="文本框扩展比例")
-    drop_score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="低置信度过滤阈值")
+    # 高级用户自定义参数 (PaddleOCR 3.3 兼容)
+    text_det_thresh: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="文本检测阈值")
+    text_det_box_thresh: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="文本框置信度阈值")
+    text_det_unclip_ratio: Optional[float] = Field(default=None, ge=1.0, le=3.0, description="文本框扩展比例")
+    text_rec_score_thresh: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="低置信度过滤阈值")
 
 
 class OCRResponse(BaseModel):
