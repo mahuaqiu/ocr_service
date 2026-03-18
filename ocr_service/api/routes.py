@@ -124,6 +124,9 @@ async def get_ocr_infos(request: OCRRequest):
     if request.filter_text:
         texts = filter_texts(texts, request.filter_text)
 
+    # 按位置排序（从上到下、从左到右）
+    texts = sorted(texts, key=lambda t: (t.center.y, t.center.x))
+
     return OCRResponse(
         status=result.status,
         texts=[
@@ -210,6 +213,9 @@ async def ocr_get_coord_by_text(request: OCRRequest):
             coords=[],
             duration_ms=0,
         )
+
+    # 按位置排序（从上到下、从左到右）
+    text_blocks = sorted(text_blocks, key=lambda t: (t.center.y, t.center.x))
 
     return OCRResponse(
         status="success",
@@ -312,6 +318,10 @@ async def image_match(request: ImageMatchRequest):
             )
             for m in result.matches
         ],
+        coords=[
+            PointModel(x=m.center.x, y=m.center.y)
+            for m in result.matches
+        ],
         duration_ms=result.duration_ms,
         error=result.error,
     )
@@ -346,6 +356,7 @@ async def image_match_near_text(request: TextNearImageRequest):
             status="success",
             text_position=None,
             match=None,
+            coords=[],
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
@@ -367,6 +378,7 @@ async def image_match_near_text(request: TextNearImageRequest):
             status="success",
             text_position=PointModel(x=text_center.x, y=text_center.y),
             match=None,
+            coords=[],
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
@@ -386,6 +398,7 @@ async def image_match_near_text(request: TextNearImageRequest):
             status="success",
             text_position=PointModel(x=text_center.x, y=text_center.y),
             match=None,
+            coords=[],
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
@@ -407,6 +420,7 @@ async def image_match_near_text(request: TextNearImageRequest):
             ),
             center=PointModel(x=nearest_match.center.x, y=nearest_match.center.y),
         ),
+        coords=[PointModel(x=nearest_match.center.x, y=nearest_match.center.y)],
         distance=distance,
         duration_ms=int((time.time() - start_time) * 1000),
     )

@@ -141,7 +141,7 @@ class ImageMatchRequest(BaseModel):
     method: str = Field(
         default="template", description="匹配方法: template(精确) / feature(特征)"
     )
-    multi_target: bool = Field(default=False, description="是否多目标匹配")
+    multi_target: bool = Field(default=True, description="是否多目标匹配")
 
 
 class ImageMatchResponse(BaseModel):
@@ -149,6 +149,7 @@ class ImageMatchResponse(BaseModel):
 
     status: str
     matches: list[MatchItemModel] = []
+    coords: list[PointModel] = []  # 简洁的坐标数组
     duration_ms: int = 0
     error: Optional[str] = None
 
@@ -174,6 +175,7 @@ class TextNearImageResponse(BaseModel):
     status: str
     text_position: Optional[PointModel] = Field(default=None, description="文字位置")
     match: Optional[MatchItemModel] = Field(default=None, description="最近的匹配图片")
+    coords: list[PointModel] = []  # 简洁的坐标数组
     distance: Optional[int] = Field(default=None, description="距离（像素）")
     duration_ms: int = 0
     error: Optional[str] = None

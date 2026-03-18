@@ -160,8 +160,8 @@ class ImageMatcher:
                 rectangles.append([pt[0], pt[1], w, h, result[pt[1], pt[0]]])
 
             if rectangles:
-                # 按 confidence 降序排序
-                rectangles.sort(key=lambda x: x[4], reverse=True)
+                # 按位置排序（从上到下、从左到右），y 越小越靠上，x 越小越靠左
+                rectangles.sort(key=lambda x: (x[1], x[0]))
 
                 # 简单的非极大值抑制
                 picked = []
