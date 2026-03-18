@@ -6,8 +6,9 @@ uvicorn[standard]>=0.23.0
 pydantic>=2.0.0
 
 # OCR 引擎
-paddleocr>=2.7.0
-paddlepaddle>=2.5.0
+paddleocr==3.3.0
+paddlepaddle==3.2.0
+paddlex==3.3.13
 
 # 图像处理
 opencv-python-headless>=4.8.0
