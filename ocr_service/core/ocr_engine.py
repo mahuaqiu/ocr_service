@@ -305,7 +305,7 @@ class OCREngine:
         prefer_exact: bool = True,
         preprocess_mode: str = PreprocessMode.AUTO,
         ocr_preset: str = "default",
-    ) -> list[TextBlock]:
+    ) -> tuple[list[TextBlock], int]:
         """
         在图片中查找所有匹配的文字。
 
@@ -320,7 +320,7 @@ class OCREngine:
             ocr_preset: OCR 预设配置。
 
         Returns:
-            list[TextBlock]: 匹配的文字块列表。
+            tuple[list[TextBlock], int]: 匹配的文字块列表和耗时(毫秒)。
         """
         result = self.recognize(
             image_data,
@@ -330,7 +330,7 @@ class OCREngine:
         )
 
         if result.status != "success":
-            return []
+            return [], result.duration_ms
 
         # 精确匹配优先模式：先找完全相等，再找包含匹配
         if prefer_exact and match_mode == "exact":
@@ -344,7 +344,7 @@ class OCREngine:
                 for text_block in result.texts:
                     if target_text in text_block.text:
                         matches.append(text_block)
-            return matches
+            return matches, result.duration_ms
 
         # 非精确优先模式，使用原有匹配逻辑
         matches = []
@@ -352,7 +352,7 @@ class OCREngine:
             if self._match_text(text_block.text, target_text, match_mode):
                 matches.append(text_block)
 
-        return matches
+        return matches, result.duration_ms
 
     def _match_text(self, text: str, target: str, mode: str) -> bool:
         """

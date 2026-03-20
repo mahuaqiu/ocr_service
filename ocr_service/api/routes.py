@@ -185,7 +185,7 @@ async def ocr_get_coord_by_text(request: OCRRequest):
                 status="success",
                 texts=[],
                 coords=[],
-                duration_ms=0,
+                duration_ms=result.duration_ms,
             )
 
         # 正则过滤
@@ -195,9 +195,11 @@ async def ocr_get_coord_by_text(request: OCRRequest):
         except re.error:
             # 正则表达式无效，回退到包含匹配
             text_blocks = [t for t in result.texts if pattern in t.text]
+
+        duration_ms = result.duration_ms
     else:
         # 普通模式：使用 find_all_texts
-        text_blocks = engine.find_all_texts(
+        text_blocks, duration_ms = engine.find_all_texts(
             image_data=request.image,
             target_text=pattern,
             confidence_threshold=request.confidence_threshold,
@@ -211,7 +213,7 @@ async def ocr_get_coord_by_text(request: OCRRequest):
             status="success",
             texts=[],
             coords=[],
-            duration_ms=0,
+            duration_ms=duration_ms,
         )
 
     # 按位置排序（从上到下、从左到右）
@@ -232,7 +234,7 @@ async def ocr_get_coord_by_text(request: OCRRequest):
             PointModel(x=tb.center.x, y=tb.center.y)
             for tb in text_blocks
         ],
-        duration_ms=0,
+        duration_ms=duration_ms,
     )
 
 
