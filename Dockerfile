@@ -16,7 +16,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     OCR_HOST=0.0.0.0 \
     OCR_PORT=8081 \
     OCR_LANG=ch \
-    OCR_CACHE_DIR=/service/cache
+    TZ=Asia/Shanghai
 
 # 更换为阿里云国内源
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
@@ -32,20 +32,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libxrender1 \
     curl \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
 COPY requirements.txt .
 
 # 安装 Python 依赖（使用清华大学镜像源）
-RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 # 复制应用代码
 COPY ocr_service ./ocr_service
 COPY pyproject.toml .
-
-# 创建缓存目录
-RUN mkdir -p /service/cache
 
 # 暴露端口
 EXPOSE 8081

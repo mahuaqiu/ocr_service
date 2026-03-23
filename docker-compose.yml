@@ -10,6 +10,10 @@ services:
     ports:
       - "9021:8081"
     environment:
+      # ==================== 时区配置 ====================
+      # 设置容器时区为东八区（北京时间）
+      - TZ=Asia/Shanghai
+
       # ==================== 服务基础配置 ====================
       # 监听地址
       - OCR_HOST=0.0.0.0
@@ -27,8 +31,6 @@ services:
       - OCR_USE_GPU=false
       # 自定义模型目录 (可选)
       # - OCR_MODEL_DIR=
-      # 模型缓存目录
-      - OCR_CACHE_DIR=/service/cache
 
       # ==================== OCR 高级参数 ====================
       # 文本检测阈值，值越小检测越敏感，可能检测到更多小字 (0.0-1.0)
@@ -60,7 +62,7 @@ services:
       # 挂载本地代码，方便开发调试
       - ./ocr_service:/service/ocr_service
       # 持久化模型缓存
-      - ocr-cache:/service/cache
+      - D:\code\ocr_service\paddlex:/root/.paddlex
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
@@ -68,6 +70,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-
-volumes:
-  ocr-cache:

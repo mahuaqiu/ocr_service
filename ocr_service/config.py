@@ -37,9 +37,6 @@ class ServiceConfig:
     default_match_threshold: float = 0.8
     default_match_method: str = "template"  # template / feature
 
-    # 缓存目录
-    cache_dir: str = "cache"
-
     @classmethod
     def from_env(cls) -> "ServiceConfig":
         """从环境变量加载配置。"""
@@ -64,7 +61,6 @@ class ServiceConfig:
             # 其他配置
             default_match_threshold=float(os.getenv("OCR_MATCH_THRESHOLD", "0.8")),
             default_match_method=os.getenv("OCR_MATCH_METHOD", "template"),
-            cache_dir=os.getenv("OCR_CACHE_DIR", "cache"),
         )
 
 

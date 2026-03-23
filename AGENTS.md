@@ -95,4 +95,4 @@ ocr_service/
 
 - API 文档访问：`/docs`（Swagger UI）或 `/redoc`
 - 核心引擎使用全局单例，首次调用时初始化
-- PaddleOCR 模型会自动下载到 `cache/` 目录
+- PaddleOCR 模型自动下载到 `/root/.paddlex` 目录（通过 volume 持久化）
