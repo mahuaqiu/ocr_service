@@ -177,6 +177,9 @@ class OCREngine:
             # 执行 OCR (PaddleOCR 3.x 使用 predict 方法)
             ocr_result = ocr_instance.predict(processed_image)
 
+            # 打印 PaddleOCR 原始返回结果，便于排查问题
+            logger.info(f"[OCR_RAW] PaddleOCR 原始返回结果: {ocr_result}")
+
             # 解析 PaddleOCR 3.x 结果
             texts = OCRResult.parse_from_paddleocr(ocr_result, confidence_threshold, scale)
 
