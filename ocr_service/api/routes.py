@@ -124,9 +124,6 @@ async def get_ocr_infos(request: OCRRequest):
     if request.filter_text:
         texts = filter_texts(texts, request.filter_text)
 
-    # 按位置排序（从上到下、从左到右）
-    texts = sorted(texts, key=lambda t: (t.center.y, t.center.x))
-
     return OCRResponse(
         status=result.status,
         texts=[
@@ -216,9 +213,6 @@ async def ocr_get_coord_by_text(request: OCRRequest):
             duration_ms=duration_ms,
         )
 
-    # 按位置排序（从上到下、从左到右）
-    text_blocks = sorted(text_blocks, key=lambda t: (t.center.y, t.center.x))
-
     return OCRResponse(
         status="success",
         texts=[
@@ -268,11 +262,8 @@ async def ocr_text(request: OCRTextRequest):
             error=result.error,
         )
 
-    # 按阅读顺序排序（从上到下，从左到右）
-    sorted_texts = sorted(result.texts, key=lambda t: (t.center.y, t.center.x))
-
     # 拼接文本
-    text = request.separator.join(t.text for t in sorted_texts)
+    text = request.separator.join(t.text for t in result.texts)
 
     return OCRTextResponse(
         status="success",
