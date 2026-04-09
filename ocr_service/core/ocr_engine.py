@@ -177,8 +177,12 @@ class OCREngine:
             # 执行 OCR (PaddleOCR 3.x 使用 predict 方法)
             ocr_result = ocr_instance.predict(processed_image)
 
-            # 打印 PaddleOCR 原始返回结果，便于排查问题
-            logger.info(f"[OCR_RAW] PaddleOCR 原始返回结果: {ocr_result}")
+            # 打印 OCR 识别结果（只显示文字和置信度，不打印数组坐标）
+            if ocr_result:
+                for item in ocr_result:
+                    rec_texts = item.get('rec_texts', []) if hasattr(item, 'keys') else []
+                    rec_scores = item.get('rec_scores', []) if hasattr(item, 'keys') else []
+                    logger.info(f"[OCR_RAW] 识别到 {len(rec_texts)} 个文字块: {rec_texts}, 置信度: {rec_scores}")
 
             # 解析 PaddleOCR 3.x 结果
             texts = OCRResult.parse_from_paddleocr(ocr_result, confidence_threshold, scale)
