@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"from ocr_service.core.ocr_engine import OCREngine; e = OCREngine\\(\\); print\\('_filter_ocr_result_for_log 方法存在:', hasattr\\(e, '_filter_ocr_result_for_log'\\)\\)\")",
+      "Bash(python -c \"from ocr_service.core.ocr_engine import OCREngine; e = OCREngine\\(\\); print\\('语法正确'\\)\")"
+    ]
+  }
+}
