@@ -25,6 +25,7 @@ from ocr_service.api.schemas import (
 )
 from ocr_service.core.ocr_engine import get_ocr_engine
 from ocr_service.core.image_matcher import get_image_matcher
+from ocr_service.models.ocr_result import remove_spaces
 
 router = APIRouter()
 
@@ -56,16 +57,18 @@ def filter_texts(texts: list, filter_text: str) -> list:
         过滤后的文字块列表
     """
     match_mode, pattern = parse_filter_text(filter_text)
+    # 移除空格进行比较
+    pattern_normalized = remove_spaces(pattern)
 
     if match_mode == "regex":
         try:
             regex = re.compile(pattern)
-            return [t for t in texts if regex.search(t.text)]
+            return [t for t in texts if regex.search(remove_spaces(t.text))]
         except re.error:
             # 正则表达式无效，回退到包含匹配
-            return [t for t in texts if pattern in t.text]
+            return [t for t in texts if pattern_normalized in remove_spaces(t.text)]
     else:
-        return [t for t in texts if pattern in t.text]
+        return [t for t in texts if pattern_normalized in remove_spaces(t.text)]
 
 
 # ==================== OCR 接口 ====================
@@ -188,10 +191,11 @@ async def ocr_get_coord_by_text(request: OCRRequest):
         # 正则过滤
         try:
             regex = re.compile(pattern)
-            text_blocks = [t for t in result.texts if regex.search(t.text)]
+            text_blocks = [t for t in result.texts if regex.search(remove_spaces(t.text))]
         except re.error:
             # 正则表达式无效，回退到包含匹配
-            text_blocks = [t for t in result.texts if pattern in t.text]
+            pattern_normalized = remove_spaces(pattern)
+            text_blocks = [t for t in result.texts if pattern_normalized in remove_spaces(t.text)]
 
         duration_ms = result.duration_ms
     else:

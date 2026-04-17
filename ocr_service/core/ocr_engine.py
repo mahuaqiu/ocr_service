@@ -15,7 +15,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 from ocr_service.config import ServiceConfig, get_config
-from ocr_service.models.ocr_result import TextBlock, OCRResult, Point
+from ocr_service.models.ocr_result import TextBlock, OCRResult, Point, remove_spaces
 from ocr_service.utils.image_utils import decode_image
 from ocr_service.core.image_preprocessor import (
     ImagePreprocessor,
@@ -286,13 +286,15 @@ class OCREngine:
 
         # 精确匹配优先模式：先找完全相等，再找包含匹配
         if prefer_exact and match_mode == "exact":
+            # 移除目标文本中的空格进行比较
+            target_normalized = remove_spaces(target_text)
             # 第一阶段：精确匹配（text == target）
             for text_block in result.texts:
-                if text_block.text == target_text:
+                if remove_spaces(text_block.text) == target_normalized:
                     return text_block
             # 第二阶段：包含匹配（target in text）
             for text_block in result.texts:
-                if target_text in text_block.text:
+                if target_normalized in remove_spaces(text_block.text):
                     return text_block
             return None
 
@@ -342,14 +344,16 @@ class OCREngine:
         # 精确匹配优先模式：先找完全相等，再找包含匹配
         if prefer_exact and match_mode == "exact":
             matches = []
+            # 移除目标文本中的空格进行比较
+            target_normalized = remove_spaces(target_text)
             # 第一阶段：精确匹配（text == target）
             for text_block in result.texts:
-                if text_block.text == target_text:
+                if remove_spaces(text_block.text) == target_normalized:
                     matches.append(text_block)
             # 第二阶段：包含匹配（target in text），排除已匹配的
             if not matches:
                 for text_block in result.texts:
-                    if target_text in text_block.text:
+                    if target_normalized in remove_spaces(text_block.text):
                         matches.append(text_block)
             return matches, result.duration_ms
 
@@ -373,8 +377,12 @@ class OCREngine:
         Returns:
             bool: 是否匹配。
         """
+        # 移除空格进行比较
+        text_normalized = remove_spaces(text)
+        target_normalized = remove_spaces(target)
+
         if mode == "exact":
-            return target in text
+            return target_normalized in text_normalized
         elif mode == "fuzzy":
             # 模糊匹配：忽略标点和空白
             import unicodedata
@@ -388,14 +396,14 @@ class OCREngine:
                     and not unicodedata.category(c).startswith("Z")
                 )
 
-            return normalize(target) in normalize(text)
+            return normalize(target_normalized) in normalize(text_normalized)
         elif mode == "regex":
             try:
-                return bool(re.search(target, text))
+                return bool(re.search(target, text_normalized))
             except re.error:
                 return False
         else:
-            return target in text
+            return target_normalized in text_normalized
 
     def get_text_center(
         self,

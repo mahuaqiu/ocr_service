@@ -6,6 +6,19 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Any
 
 
+def remove_spaces(text: str) -> str:
+    """移除文本中的所有空格（包括半角和全角空格）。
+
+    Args:
+        text: 原始文本
+
+    Returns:
+        移除空格后的文本
+    """
+    # 移除半角空格和全角空格
+    return text.replace(" ", "").replace("　", "")
+
+
 @dataclass
 class Point:
     """坐标点。"""
@@ -103,7 +116,7 @@ class OCRResult:
                     bbox = [[int(p[0] / scale), int(p[1] / scale)] for p in bbox]
 
                 text_block = TextBlock(
-                    text=text,
+                    text=remove_spaces(text),  # 移除空格
                     confidence=confidence,
                     bbox=bbox,
                     center=Point(x=center_x, y=center_y),
