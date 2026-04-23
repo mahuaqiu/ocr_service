@@ -40,10 +40,12 @@ class RequestIdFormatter(logging.Formatter):
     """自动注入 request-id 的日志格式化器"""
 
     def format(self, record):
+        # 添加 request_id 属性（如果有则包含尾部空格）
         request_id = get_request_id()
         if request_id:
-            # 在消息前添加标记
-            record.msg = f"[{request_id}] {record.msg}"
+            record.request_id = f"[{request_id}] "
+        else:
+            record.request_id = ""
         return super().format(record)
 
 
@@ -208,7 +210,7 @@ def setup_logging():
     file_handler.setLevel(logging.INFO)
     file_handler.addFilter(RequestResponseFilter())
     file_formatter = RequestIdFormatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        "%(asctime)s - %(name)s - %(levelname)s - %(request_id)s%(message)s"
     )
     file_handler.setFormatter(file_formatter)
     app_logger.addHandler(file_handler)
@@ -217,7 +219,7 @@ def setup_logging():
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.addFilter(RequestResponseFilter())
-    console_formatter = RequestIdFormatter("%(levelname)s: %(message)s")
+    console_formatter = RequestIdFormatter("%(levelname)s: %(request_id)s%(message)s")
     console_handler.setFormatter(console_formatter)
     app_logger.addHandler(console_handler)
 
