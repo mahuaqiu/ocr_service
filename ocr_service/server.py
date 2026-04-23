@@ -27,12 +27,34 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from ocr_service import __version__
 from ocr_service.api.routes import router
 from ocr_service.config import ServiceConfig, get_config, set_config
+from ocr_service.utils.request_context import get_request_id, set_request_id, clear_request_id
 
 # 使用根日志记录器，确保日志能写入文件和控制台
 logger = logging.getLogger("ocr_service")
 
 # Base64 缩写的最大长度
 TRUNCATE_LENGTH = 50
+
+
+class RequestIdFormatter(logging.Formatter):
+    """自动注入 request-id 的日志格式化器"""
+
+    def format(self, record):
+        request_id = get_request_id()
+        if request_id:
+            # 在消息前添加标记
+            record.msg = f"[{request_id}] {record.msg}"
+        return super().format(record)
+
+
+def extract_request_id(request: Request) -> str | None:
+    """从 header 中提取 request-id，兼容三种参数名"""
+    # 优先级：X-Request-Id > request-id > request_id
+    return (
+        request.headers.get("X-Request-Id") or
+        request.headers.get("request-id") or
+        request.headers.get("request_id")
+    )
 
 
 def truncate_base64(data: Any, max_length: int = TRUNCATE_LENGTH) -> Any:
