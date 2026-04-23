@@ -124,6 +124,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """请求/响应日志中间件"""
 
     async def dispatch(self, request: Request, call_next):
+        # 提取 request-id，兼容三种参数名
+        request_id = extract_request_id(request)
+        if request_id:
+            set_request_id(request_id)
+
         # 读取请求体
         body = None
         if request.method in ["POST", "PUT", "PATCH"]:
@@ -154,6 +159,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # 记录响应日志
         body_json = json.loads(response_body.decode()) if response_body else {}
         logger.info(format_response_log(request, body_json, response.status_code))
+
+        # 清理上下文
+        clear_request_id()
 
         # 返回响应
         from starlette.responses import Response
