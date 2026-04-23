@@ -207,7 +207,7 @@ def setup_logging():
     )
     file_handler.setLevel(logging.INFO)
     file_handler.addFilter(RequestResponseFilter())
-    file_formatter = logging.Formatter(
+    file_formatter = RequestIdFormatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     file_handler.setFormatter(file_formatter)
@@ -217,7 +217,7 @@ def setup_logging():
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
     console_handler.addFilter(RequestResponseFilter())
-    console_formatter = logging.Formatter("%(levelname)s: %(message)s")
+    console_formatter = RequestIdFormatter("%(levelname)s: %(message)s")
     console_handler.setFormatter(console_formatter)
     app_logger.addHandler(console_handler)
 
