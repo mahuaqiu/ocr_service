@@ -12,8 +12,9 @@ type: project
 
 ## 约束
 
-- 没有 `request-id` header 时，不记录标记，日志保持原格式
+- 没有 `request-id` / `request_id` header 时，不记录标记，日志保持原格式
 - 全部模块的日志都需要带上 request-id（包括 OCR 引擎、图像匹配等）
+- Header 参数兼容两种格式：`request-id` 和 `request_id`
 
 ## 技术方案
 
@@ -55,8 +56,8 @@ from ocr_service.utils.request_context import set_request_id, clear_request_id
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # 提取 request-id
-        request_id = request.headers.get("request-id")
+        # 提取 request-id，兼容两种参数名
+        request_id = request.headers.get("request-id") or request.headers.get("request_id")
         if request_id:
             set_request_id(request_id)
 
