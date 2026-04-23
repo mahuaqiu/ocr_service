@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(python -c \"from ocr_service.core.ocr_engine import OCREngine; e = OCREngine\\(\\); print\\('_filter_ocr_result_for_log 方法存在:', hasattr\\(e, '_filter_ocr_result_for_log'\\)\\)\")",
-      "Bash(python -c \"from ocr_service.core.ocr_engine import OCREngine; e = OCREngine\\(\\); print\\('语法正确'\\)\")"
+      "Bash(python -c \"from ocr_service.core.ocr_engine import OCREngine; e = OCREngine\\(\\); print\\('语法正确'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit *)",
+      "Bash(curl -s -X GET http://localhost:8081/health -H \"X-Request-Id: test-abc123\")",
+      "Bash(curl -s -X GET http://localhost:8081/health -H \"X-Request-Id: fix-test-123\")",
+      "Bash(curl -s -X GET http://localhost:8081/health -H \"X-Request-Id: final-test-xyz\")",
+      "Bash(curl -s -X GET http://localhost:8081/health -H \"X-Request-Id: success-test\")",
+      "Bash(curl *)"
     ]
   }
 }
