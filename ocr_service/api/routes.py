@@ -279,6 +279,7 @@ async def ocr_text(request: OCRTextRequest):
         return OCRTextResponse(
             status=result.status,
             text="",
+            ocr_info=[],
             duration_ms=result.duration_ms,
             error=result.error,
         )
@@ -286,9 +287,16 @@ async def ocr_text(request: OCRTextRequest):
     # 拼接文本
     text = request.separator.join(t.text for t in result.texts)
 
+    # 构建 ocr_info（不含置信度）
+    ocr_info = [
+        OCRInfoItem(text=t.text, center=PointModel(x=t.center.x, y=t.center.y))
+        for t in result.texts
+    ]
+
     return OCRTextResponse(
         status="success",
         text=text,
+        ocr_info=ocr_info,
         duration_ms=result.duration_ms,
     )
 
