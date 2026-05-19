@@ -15,7 +15,8 @@
       "Skill(writing-plans)",
       "Skill(executing-plans)",
       "Bash(python -c \"from ocr_service.api.schemas import OCRInfoItem, OCRResponse, OCRTextResponse, TextNearImageResponse; print\\('schemas.py OK'\\)\")",
-      "Bash(python -c \"from ocr_service.api.routes import router; print\\('routes.py OK'\\)\")"
+      "Bash(python -c \"from ocr_service.api.routes import router; print\\('routes.py OK'\\)\")",
+      "Bash(python *)"
     ]
   }
 }
