@@ -10,7 +10,12 @@
       "Bash(curl -s -X GET http://localhost:8081/health -H \"X-Request-Id: fix-test-123\")",
       "Bash(curl -s -X GET http://localhost:8081/health -H \"X-Request-Id: final-test-xyz\")",
       "Bash(curl -s -X GET http://localhost:8081/health -H \"X-Request-Id: success-test\")",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Skill(brainstorming)",
+      "Skill(writing-plans)",
+      "Skill(executing-plans)",
+      "Bash(python -c \"from ocr_service.api.schemas import OCRInfoItem, OCRResponse, OCRTextResponse, TextNearImageResponse; print\\('schemas.py OK'\\)\")",
+      "Bash(python -c \"from ocr_service.api.routes import router; print\\('routes.py OK'\\)\")"
     ]
   }
 }
