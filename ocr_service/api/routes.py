@@ -128,6 +128,12 @@ async def get_ocr_infos(request: OCRRequest):
     if request.filter_text:
         texts = filter_texts(texts, request.filter_text)
 
+    # 构建 ocr_info（不含置信度）
+    ocr_info = [
+        OCRInfoItem(text=t.text, center=PointModel(x=t.center.x, y=t.center.y))
+        for t in texts
+    ]
+
     return OCRResponse(
         status=result.status,
         texts=[
@@ -143,6 +149,7 @@ async def get_ocr_infos(request: OCRRequest):
             PointModel(x=t.center.x, y=t.center.y)
             for t in texts
         ],
+        ocr_info=ocr_info,
         duration_ms=result.duration_ms,
         error=result.error,
     )
