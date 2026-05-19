@@ -46,6 +46,13 @@ class TextBlockModel(BaseModel):
     center: PointModel
 
 
+class OCRInfoItem(BaseModel):
+    """OCR 识别信息项（简化版，不含置信度）。"""
+
+    text: str = Field(description="识别的文字内容")
+    center: PointModel = Field(description="文字中心点坐标")
+
+
 class BoundingBoxModel(BaseModel):
     """边界框。"""
 
