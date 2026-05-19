@@ -22,6 +22,7 @@ from ocr_service.api.schemas import (
     PointModel,
     BoundingBoxModel,
     MatchItemModel,
+    OCRInfoItem,
 )
 from ocr_service.core.ocr_engine import get_ocr_engine
 from ocr_service.core.image_matcher import get_image_matcher
