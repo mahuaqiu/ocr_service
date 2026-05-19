@@ -193,6 +193,7 @@ async def ocr_get_coord_by_text(request: OCRRequest):
                 status="success",
                 texts=[],
                 coords=[],
+                ocr_info=[],
                 duration_ms=result.duration_ms,
             )
 
@@ -222,8 +223,15 @@ async def ocr_get_coord_by_text(request: OCRRequest):
             status="success",
             texts=[],
             coords=[],
+            ocr_info=[],
             duration_ms=duration_ms,
         )
+
+    # 构建 ocr_info（不含置信度）
+    ocr_info = [
+        OCRInfoItem(text=tb.text, center=PointModel(x=tb.center.x, y=tb.center.y))
+        for tb in text_blocks
+    ]
 
     return OCRResponse(
         status="success",
@@ -240,6 +248,7 @@ async def ocr_get_coord_by_text(request: OCRRequest):
             PointModel(x=tb.center.x, y=tb.center.y)
             for tb in text_blocks
         ],
+        ocr_info=ocr_info,
         duration_ms=duration_ms,
     )
 
