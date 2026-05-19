@@ -103,6 +103,7 @@ class OCRResponse(BaseModel):
     status: str
     texts: list[TextBlockModel] = []
     coords: list[PointModel] = []  # 简洁的坐标数组 [(x1,y1),(x2,y2),...]
+    ocr_info: list[OCRInfoItem] = []  # OCR识别信息（文字+坐标，不含置信度）
     duration_ms: int = 0
     error: Optional[str] = None
 
@@ -131,6 +132,7 @@ class OCRTextResponse(BaseModel):
 
     status: str
     text: str = ""
+    ocr_info: list[OCRInfoItem] = []  # OCR识别信息（文字+坐标，不含置信度）
     duration_ms: int = 0
     error: Optional[str] = None
 
@@ -183,6 +185,7 @@ class TextNearImageResponse(BaseModel):
     text_position: Optional[PointModel] = Field(default=None, description="文字位置")
     match: Optional[MatchItemModel] = Field(default=None, description="最近的匹配图片")
     coords: list[PointModel] = []  # 简洁的坐标数组
+    ocr_info: list[OCRInfoItem] = []  # OCR识别信息（最多一个元素）
     distance: Optional[int] = Field(default=None, description="距离（像素）")
     duration_ms: int = 0
     error: Optional[str] = None
