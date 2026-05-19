@@ -128,10 +128,10 @@ async def get_ocr_infos(request: OCRRequest):
     if request.filter_text:
         texts = filter_texts(texts, request.filter_text)
 
-    # 构建 ocr_info（不含置信度）
+    # 构建 ocr_info（返回所有识别结果，方便排查）
     ocr_info = [
         OCRInfoItem(text=t.text, center=PointModel(x=t.center.x, y=t.center.y))
-        for t in texts
+        for t in result.texts
     ]
 
     return OCRResponse(
@@ -179,51 +179,56 @@ async def ocr_get_coord_by_text(request: OCRRequest):
     engine = get_ocr_engine()
     match_mode, pattern = parse_filter_text(request.filter_text)
 
-    # 使用正则匹配模式
-    if match_mode == "regex":
-        # 先识别所有文字，再进行正则过滤
-        result = engine.recognize(
-            image_data=request.image,
-            confidence_threshold=request.confidence_threshold,
-            preprocess_mode=request.preprocess_mode.value,
-            ocr_preset=request.ocr_preset.value,
-        )
-        if result.status != "success" or not result.texts:
-            return OCRResponse(
-                status="success",
-                texts=[],
-                coords=[],
-                ocr_info=[],
-                duration_ms=result.duration_ms,
-            )
+    # 先识别所有文字
+    result = engine.recognize(
+        image_data=request.image,
+        confidence_threshold=request.confidence_threshold,
+        preprocess_mode=request.preprocess_mode.value,
+        ocr_preset=request.ocr_preset.value,
+    )
 
-        # 正则过滤
+    # 构建 ocr_info（返回所有识别结果，方便排查）
+    all_ocr_info = [
+        OCRInfoItem(text=t.text, center=PointModel(x=t.center.x, y=t.center.y))
+        for t in result.texts
+    ]
+
+    if result.status != "success" or not result.texts:
+        return OCRResponse(
+            status="success",
+            texts=[],
+            coords=[],
+            ocr_info=all_ocr_info,
+            duration_ms=result.duration_ms,
+        )
+
+    # 根据 match_mode 过滤
+    if match_mode == "regex":
         try:
             regex = re.compile(pattern)
             text_blocks = [t for t in result.texts if regex.search(remove_spaces(t.text))]
         except re.error:
-            # 正则表达式无效，回退到包含匹配
             pattern_normalized = remove_spaces(pattern)
             text_blocks = [t for t in result.texts if pattern_normalized in remove_spaces(t.text)]
-
-        duration_ms = result.duration_ms
     else:
-        # 普通模式：使用 find_all_texts
-        text_blocks, duration_ms = engine.find_all_texts(
-            image_data=request.image,
-            target_text=pattern,
-            confidence_threshold=request.confidence_threshold,
-            prefer_exact=True,
-            preprocess_mode=request.preprocess_mode.value,
-            ocr_preset=request.ocr_preset.value,
-        )
+        # 普通模式：包含匹配
+        pattern_normalized = remove_spaces(pattern)
+        # 精确匹配优先：先找完全相等
+        exact_matches = [t for t in result.texts if remove_spaces(t.text) == pattern_normalized]
+        if exact_matches:
+            text_blocks = exact_matches
+        else:
+            # 包含匹配
+            text_blocks = [t for t in result.texts if pattern_normalized in remove_spaces(t.text)]
+
+    duration_ms = result.duration_ms
 
     if not text_blocks:
         return OCRResponse(
             status="success",
             texts=[],
             coords=[],
-            ocr_info=[],
+            ocr_info=all_ocr_info,
             duration_ms=duration_ms,
         )
 
@@ -365,8 +370,7 @@ async def image_match_near_text(request: TextNearImageRequest):
     import time
     start_time = time.time()
 
-    # 1. 查找文字位置
-    # 判断是否为正则表达式（以 reg_ 开头）
+    # 1. 先识别所有文字
     filter_text = request.filter_text
     if filter_text.startswith("reg_"):
         match_mode = "regex"
@@ -376,12 +380,44 @@ async def image_match_near_text(request: TextNearImageRequest):
         target_text = filter_text
 
     engine = get_ocr_engine()
-    text_block = engine.find_text(
+    result = engine.recognize(
         image_data=request.image,
-        target_text=target_text,
-        match_mode=match_mode,
-        prefer_exact=(match_mode == "exact"),
+        confidence_threshold=0.0,
     )
+
+    # 构建 ocr_info（返回所有识别结果，方便排查）
+    all_ocr_info = [
+        OCRInfoItem(text=t.text, center=PointModel(x=t.center.x, y=t.center.y))
+        for t in result.texts
+    ]
+
+    # 2. 在识别结果中查找目标文字
+    text_block = None
+    if result.status == "success" and result.texts:
+        target_normalized = remove_spaces(target_text)
+        if match_mode == "regex":
+            try:
+                regex = re.compile(target_text)
+                for t in result.texts:
+                    if regex.search(remove_spaces(t.text)):
+                        text_block = t
+                        break
+            except re.error:
+                for t in result.texts:
+                    if target_normalized in remove_spaces(t.text):
+                        text_block = t
+                        break
+        else:
+            # 精确匹配优先
+            for t in result.texts:
+                if remove_spaces(t.text) == target_normalized:
+                    text_block = t
+                    break
+            if text_block is None:
+                for t in result.texts:
+                    if target_normalized in remove_spaces(t.text):
+                        text_block = t
+                        break
 
     if text_block is None:
         return TextNearImageResponse(
@@ -389,14 +425,14 @@ async def image_match_near_text(request: TextNearImageRequest):
             text_position=None,
             match=None,
             coords=[],
-            ocr_info=[],
+            ocr_info=all_ocr_info,
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
 
     text_center = text_block.center
 
-    # 2. 查找所有模板图片位置
+    # 3. 查找所有模板图片位置
     matcher = get_image_matcher()
     match_result = matcher.match(
         source_data=request.image,
@@ -412,18 +448,16 @@ async def image_match_near_text(request: TextNearImageRequest):
             text_position=PointModel(x=text_center.x, y=text_center.y),
             match=None,
             coords=[],
-            ocr_info=[
-                OCRInfoItem(text=text_block.text, center=PointModel(x=text_center.x, y=text_center.y))
-            ],
+            ocr_info=all_ocr_info,
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
 
-    # 3. 计算每个匹配图片与文字的距离，找到最近的
+    # 4. 计算每个匹配图片与文字的距离，找到最近的
     def calc_distance(m):
         return math.sqrt((m.center.x - text_center.x) ** 2 + (m.center.y - text_center.y) ** 2)
 
-    # 过滤超出最大距离的匹配，然后按距离排序
+    # 过滤超出最大距离的匹配
     valid_matches = [
         m for m in match_result.matches
         if calc_distance(m) <= request.max_distance
@@ -435,9 +469,7 @@ async def image_match_near_text(request: TextNearImageRequest):
             text_position=PointModel(x=text_center.x, y=text_center.y),
             match=None,
             coords=[],
-            ocr_info=[
-                OCRInfoItem(text=text_block.text, center=PointModel(x=text_center.x, y=text_center.y))
-            ],
+            ocr_info=all_ocr_info,
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
@@ -460,9 +492,7 @@ async def image_match_near_text(request: TextNearImageRequest):
             center=PointModel(x=nearest_match.center.x, y=nearest_match.center.y),
         ),
         coords=[PointModel(x=nearest_match.center.x, y=nearest_match.center.y)],
-        ocr_info=[
-            OCRInfoItem(text=text_block.text, center=PointModel(x=text_center.x, y=text_center.y))
-        ],
+        ocr_info=all_ocr_info,
         distance=distance,
         duration_ms=int((time.time() - start_time) * 1000),
     )
