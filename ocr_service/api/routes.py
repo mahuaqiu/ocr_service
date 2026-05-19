@@ -389,6 +389,7 @@ async def image_match_near_text(request: TextNearImageRequest):
             text_position=None,
             match=None,
             coords=[],
+            ocr_info=[],
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
@@ -411,6 +412,9 @@ async def image_match_near_text(request: TextNearImageRequest):
             text_position=PointModel(x=text_center.x, y=text_center.y),
             match=None,
             coords=[],
+            ocr_info=[
+                OCRInfoItem(text=text_block.text, center=PointModel(x=text_center.x, y=text_center.y))
+            ],
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
@@ -431,6 +435,9 @@ async def image_match_near_text(request: TextNearImageRequest):
             text_position=PointModel(x=text_center.x, y=text_center.y),
             match=None,
             coords=[],
+            ocr_info=[
+                OCRInfoItem(text=text_block.text, center=PointModel(x=text_center.x, y=text_center.y))
+            ],
             distance=None,
             duration_ms=int((time.time() - start_time) * 1000),
         )
@@ -453,6 +460,9 @@ async def image_match_near_text(request: TextNearImageRequest):
             center=PointModel(x=nearest_match.center.x, y=nearest_match.center.y),
         ),
         coords=[PointModel(x=nearest_match.center.x, y=nearest_match.center.y)],
+        ocr_info=[
+            OCRInfoItem(text=text_block.text, center=PointModel(x=text_center.x, y=text_center.y))
+        ],
         distance=distance,
         duration_ms=int((time.time() - start_time) * 1000),
     )
