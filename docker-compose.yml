@@ -21,6 +21,8 @@ services:
       - OCR_PORT=8081
       # 调试模式
       - OCR_DEBUG=false
+      # worker 进程数，默认 1（每个进程加载独立 OCR 实例）
+      - OCR_WORKERS=1
 
       # ==================== OCR 引擎配置 ====================
       # OCR 语言 (ch=中文, en=英文, korean=韩文等)

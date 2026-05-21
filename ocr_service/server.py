@@ -291,6 +291,12 @@ def main():
         action="store_true",
         help="开发模式，自动重载",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=int(os.getenv("OCR_WORKERS", "1")),
+        help="worker 进程数，默认 1",
+    )
     args = parser.parse_args()
 
     uvicorn.run(
@@ -298,6 +304,7 @@ def main():
         host=args.host,
         port=args.port,
         reload=args.reload,
+        workers=args.workers,
     )
 
 

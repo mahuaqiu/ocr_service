@@ -6,6 +6,7 @@ OCR 引擎封装。
 
 import logging
 import re
+import threading
 import time
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -86,9 +87,12 @@ class OCREngine:
 
     @property
     def ocr(self):
-        """延迟加载 PaddleOCR 实例。"""
+        """延迟加载 PaddleOCR 实例（带锁保护）。"""
         if self._ocr is None:
-            self._ocr = self._create_ocr_instance()
+            with _ocr_lock:
+                # 双重检查，避免重复初始化
+                if self._ocr is None:
+                    self._ocr = self._create_ocr_instance()
         return self._ocr
 
     def _create_ocr_instance(self, custom_params: Optional[Dict[str, Any]] = None):
@@ -168,14 +172,15 @@ class OCREngine:
             if custom_ocr_params:
                 ocr_params = {**ocr_params, **custom_ocr_params}
 
-            # 选择 OCR 实例
-            if ocr_preset == "default" and custom_ocr_params is None:
-                ocr_instance = self.ocr
-            else:
-                ocr_instance = self._create_ocr_instance(ocr_params)
+            # 选择 OCR 实例并执行 OCR（锁保护区域）
+            with _ocr_lock:
+                if ocr_preset == "default" and custom_ocr_params is None:
+                    ocr_instance = self.ocr
+                else:
+                    ocr_instance = self._create_ocr_instance(ocr_params)
 
-            # 执行 OCR (PaddleOCR 3.x 使用 predict 方法)
-            ocr_result = ocr_instance.predict(processed_image)
+                # 执行 OCR（核心保护区域）
+                ocr_result = ocr_instance.predict(processed_image)
 
             # 打印 OCR 识别结果（只显示文字和置信度，不打印数组坐标）
             if ocr_result:
@@ -426,6 +431,10 @@ class OCREngine:
         return text_block.center if text_block else None
 
 
+# 全局 OCR 锁（保护并发调用）
+_ocr_lock = threading.Lock()
+
+
 # 全局引擎实例
 _engine: Optional[OCREngine] = None
 
@@ -434,5 +443,8 @@ def get_ocr_engine() -> OCREngine:
     """获取全局 OCR 引擎实例。"""
     global _engine
     if _engine is None:
-        _engine = OCREngine()
+        with _ocr_lock:
+            # 双重检查，避免重复初始化
+            if _engine is None:
+                _engine = OCREngine()
     return _engine
