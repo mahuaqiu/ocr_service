@@ -18,7 +18,8 @@
       "Bash(python -c \"from ocr_service.api.routes import router; print\\('routes.py OK'\\)\")",
       "Bash(python *)",
       "Bash(docker exec *)",
-      "PowerShell(docker exec ocr-service *)"
+      "PowerShell(docker exec ocr-service *)",
+      "Bash(git *)"
     ]
   }
 }
