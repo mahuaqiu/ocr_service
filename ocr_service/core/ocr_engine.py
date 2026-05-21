@@ -431,8 +431,8 @@ class OCREngine:
         return text_block.center if text_block else None
 
 
-# 全局 OCR 锁（保护并发调用）
-_ocr_lock = threading.Lock()
+# 全局 OCR 锁（保护并发调用，使用可重入锁避免死锁）
+_ocr_lock = threading.RLock()
 
 
 # 全局引擎实例
