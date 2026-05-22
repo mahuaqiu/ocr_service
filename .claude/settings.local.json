@@ -19,7 +19,15 @@
       "Bash(python *)",
       "Bash(docker exec *)",
       "PowerShell(docker exec ocr-service *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(.\\\\venv\\\\Scripts\\\\activate)",
+      "PowerShell(pip install *)",
+      "PowerShell(.\\\\venv\\\\Scripts\\\\Activate.ps1; python test_concurrent_ocr.py)",
+      "Bash(docker-compose build *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker-compose logs *)",
+      "Bash(.venv\\\\Scripts\\\\activate)",
+      "Bash(docker-compose restart *)"
     ]
   }
 }
