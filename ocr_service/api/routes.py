@@ -2,6 +2,7 @@
 API 路由定义。
 """
 
+import asyncio
 import math
 import re
 
@@ -114,7 +115,8 @@ async def get_ocr_infos(request: OCRRequest):
         if request.text_rec_score_thresh is not None:
             custom_params["text_rec_score_thresh"] = request.text_rec_score_thresh
 
-    result = engine.recognize(
+    result = await asyncio.to_thread(
+        engine.recognize,
         image_data=request.image,
         lang=request.lang,
         confidence_threshold=request.confidence_threshold,
@@ -179,8 +181,9 @@ async def ocr_get_coord_by_text(request: OCRRequest):
     engine = get_ocr_engine()
     match_mode, pattern = parse_filter_text(request.filter_text)
 
-    # 先识别所有文字
-    result = engine.recognize(
+    # 先识别所有文字（异步执行，不阻塞事件循环）
+    result = await asyncio.to_thread(
+        engine.recognize,
         image_data=request.image,
         confidence_threshold=request.confidence_threshold,
         preprocess_mode=request.preprocess_mode.value,
@@ -266,7 +269,8 @@ async def ocr_text(request: OCRTextRequest):
         OCRTextResponse: 拼接后的文本字符串。
     """
     engine = get_ocr_engine()
-    result = engine.recognize(
+    result = await asyncio.to_thread(
+        engine.recognize,
         image_data=request.image,
         lang=request.lang,
         confidence_threshold=request.confidence_threshold,
@@ -374,7 +378,8 @@ async def image_match_near_text(request: TextNearImageRequest):
         target_text = filter_text
 
     engine = get_ocr_engine()
-    result = engine.recognize(
+    result = await asyncio.to_thread(
+        engine.recognize,
         image_data=request.image,
         confidence_threshold=0.0,
     )
