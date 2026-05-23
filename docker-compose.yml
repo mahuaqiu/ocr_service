@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ocr-service:latest
+    image: ocr-service:cpu
     container_name: ocr-service
     ports:
       - "9021:8081"
