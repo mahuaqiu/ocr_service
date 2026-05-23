@@ -27,7 +27,8 @@
       "Bash(docker-compose up *)",
       "Bash(docker-compose logs *)",
       "Bash(.venv\\\\Scripts\\\\activate)",
-      "Bash(docker-compose restart *)"
+      "Bash(docker-compose restart *)",
+      "WebSearch"
     ]
   }
 }

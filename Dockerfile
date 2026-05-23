@@ -1,8 +1,8 @@
 # OCR Service Dockerfile (GPU 版本)
 # 基于 PaddleOCR 的文字识别和图像匹配服务
-# 使用 CUDA 12.4 + Python 3.12 支持 GPU 加速
+# 使用 CUDA 12.9 + Python 3.12 支持 GPU 加速
 
-FROM nvidia/cuda:12.4.0-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:12.9.2-cudnn-runtime-ubuntu24.04
 
 LABEL maintainer="OCR Service"
 LABEL description="OCR and Image Matching Service (GPU Enabled)"
