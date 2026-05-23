@@ -29,8 +29,8 @@ services:
       - OCR_LANG=ch
       # OCR 模型版本 (PP-OCRv3 / PP-OCRv4 / PP-OCRv5)
       - OCR_VERSION=PP-OCRv4
-      # 是否使用 GPU 加速
-      - OCR_USE_GPU=false
+      # 是否使用 GPU 加速（GPU 版本默认开启）
+      - OCR_USE_GPU=true
       # 自定义模型目录 (可选)
       # - OCR_MODEL_DIR=
 
@@ -66,6 +66,14 @@ services:
       # 持久化模型缓存
       - D:\code\ocr_service\paddlex:/root/.paddlex
     restart: unless-stopped
+    # GPU 资源配置（需要 nvidia-docker2 支持）
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s

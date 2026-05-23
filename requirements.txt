@@ -5,9 +5,9 @@ fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
 pydantic>=2.0.0
 
-# OCR 引擎
+# OCR 引擎（GPU 版本）
 paddleocr==3.3.0
-paddlepaddle==3.2.0
+paddlepaddle-gpu==3.2.0  # GPU 版本，支持 CUDA 11.x / 12.x
 paddlex==3.3.13
 
 # 图像处理
