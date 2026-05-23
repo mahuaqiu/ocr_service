@@ -27,11 +27,12 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list.d/u
 
 # 安装系统依赖
 # Ubuntu 24.04 自带 Python 3.12
+# 注意: libgl1-mesa-glx 在 Ubuntu 24.04 已废弃，改用 libgl1
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-venv \
     libgomp1 \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -47,8 +48,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装 Python 依赖（使用阿里云镜像源）
-RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+# 先安装 paddlepaddle-gpu（使用官方源，阿里云源无此版本）
+RUN pip install --no-cache-dir paddlepaddle-gpu==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+
+# 安装其他 Python 依赖（排除 paddlepaddle-gpu，已单独安装）
+RUN grep -v "paddlepaddle-gpu" requirements.txt | pip install --no-cache-dir -r /dev/stdin -i https://mirrors.aliyun.com/pypi/simple/
 
 # 复制应用代码
 COPY ocr_service ./ocr_service
