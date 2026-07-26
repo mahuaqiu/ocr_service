@@ -56,7 +56,7 @@ services:
 
       # ==================== 图像匹配配置 ====================
       # 默认匹配阈值 (0.0-1.0)
-      - OCR_MATCH_THRESHOLD=0.8
+      - OCR_MATCH_THRESHOLD=0.9
       # 默认匹配方法 (template=精确匹配, feature=特征匹配)
       - OCR_MATCH_METHOD=template
 

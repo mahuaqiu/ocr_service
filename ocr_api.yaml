@@ -167,7 +167,7 @@ paths:
             example:
               source_image: "data:image/png;base64,iVBORw0KGgoAAAANS..."
               template_image: "data:image/png;base64,iVBORw0KGgoAAAANS..."
-              confidence_threshold: 0.8
+              confidence_threshold: 0.9
               method: template
               multi_target: true
       responses:
@@ -212,7 +212,7 @@ paths:
               target_image: "data:image/png;base64,iVBORw0KGgoAAAANS..."
               filter_text: "目标文字"
               max_distance: 500
-              confidence_threshold: 0.8
+              confidence_threshold: 0.9
               method: template
       responses:
         '200':
@@ -441,7 +441,7 @@ components:
         confidence_threshold:
           type: number
           format: float
-          default: 0.8
+          default: 0.9
           minimum: 0.0
           maximum: 1.0
           description: 匹配阈值
@@ -481,7 +481,7 @@ components:
         confidence_threshold:
           type: number
           format: float
-          default: 0.8
+          default: 0.9
           minimum: 0.0
           maximum: 1.0
           description: 匹配阈值

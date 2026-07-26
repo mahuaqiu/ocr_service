@@ -34,7 +34,7 @@ class ServiceConfig:
     max_image_height: int = 1080  # 最大图像高度
 
     # 图像匹配配置
-    default_match_threshold: float = 0.8
+    default_match_threshold: float = 0.9
     default_match_method: str = "template"  # template / feature
 
     @classmethod
@@ -59,7 +59,7 @@ class ServiceConfig:
             max_image_width=int(os.getenv("OCR_MAX_IMAGE_WIDTH", "1920")),
             max_image_height=int(os.getenv("OCR_MAX_IMAGE_HEIGHT", "1080")),
             # 其他配置
-            default_match_threshold=float(os.getenv("OCR_MATCH_THRESHOLD", "0.8")),
+            default_match_threshold=float(os.getenv("OCR_MATCH_THRESHOLD", "0.9")),
             default_match_method=os.getenv("OCR_MATCH_METHOD", "template"),
         )
 
