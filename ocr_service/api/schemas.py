@@ -145,7 +145,7 @@ class ImageMatchRequest(BaseModel):
     source_image: str = Field(..., description="源图像（大图）Base64 编码")
     template_image: str = Field(..., description="模板图像（小图）Base64 编码")
     confidence_threshold: float = Field(
-        default=0.8, ge=0.0, le=1.0, description="匹配阈值"
+        default=0.9, ge=0.0, le=1.0, description="匹配阈值"
     )
     method: str = Field(
         default="template", description="匹配方法: template(精确) / feature(特征)"
@@ -171,7 +171,7 @@ class TextNearImageRequest(BaseModel):
     filter_text: str = Field(..., description="目标文字（以 reg_ 开头表示正则表达式）")
     max_distance: int = Field(default=500, ge=0, description="最大搜索距离（像素）")
     confidence_threshold: float = Field(
-        default=0.8, ge=0.0, le=1.0, description="匹配阈值"
+        default=0.9, ge=0.0, le=1.0, description="匹配阈值"
     )
     method: str = Field(
         default="template", description="匹配方法: template(精确) / feature(特征)"

@@ -64,7 +64,7 @@ ocr_service/
 - **OCREngine**: 封装 PaddleOCR，延迟加载，支持中英文等多语言识别。通过 `get_ocr_engine()` 获取单例实例。
 
 - **ImageMatcher**: 封装 OpenCV，支持两种匹配模式：
-  - `template`: 精确模板匹配（`cv2.matchTemplate`）
+  - `template`: 精确模板匹配（灰度粗匹配 + 颜色二次校验）
   - `feature`: 特征匹配（SIFT），支持缩放/旋转场景
 
 ### 配置
@@ -77,7 +77,7 @@ ocr_service/
 | OCR_PORT | 8081 | 监听端口 |
 | OCR_LANG | ch | OCR 语言 |
 | OCR_USE_GPU | false | 是否使用 GPU |
-| OCR_MATCH_THRESHOLD | 0.8 | 默认匹配阈值 |
+| OCR_MATCH_THRESHOLD | 0.9 | 默认匹配阈值 |
 | OCR_MATCH_METHOD | template | 默认匹配方法 |
 
 ## API 端点

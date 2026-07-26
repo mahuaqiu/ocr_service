@@ -2,6 +2,7 @@
 图像匹配引擎。
 
 基于 OpenCV 实现模板匹配和特征匹配。
+模板匹配采用「灰度粗匹配 + 颜色二次校验」，避免仅形状相似、颜色不同时的误匹配。
 """
 
 import time
@@ -39,6 +40,76 @@ class ImageMatcher:
         """
         self.config = config or get_config()
 
+    @staticmethod
+    def _color_similarity(patch: np.ndarray, template: np.ndarray) -> float:
+        """
+        计算候选区域与模板的颜色相似度。
+
+        对 B/G/R 三通道分别做归一化相关，取最小值。
+        任一通道颜色差异大时分数会被拉低，从而过滤「形状像但颜色不对」的候选。
+
+        Args:
+            patch: 大图裁出的候选区域（BGR）。
+            template: 模板图像（BGR）。
+
+        Returns:
+            float: 颜色相似度，范围约 [-1, 1]，越高越相似。
+        """
+        if patch.shape[:2] != template.shape[:2]:
+            return 0.0
+        if patch.size == 0 or template.size == 0:
+            return 0.0
+
+        channel_scores = []
+        for channel in range(3):
+            score_map = cv2.matchTemplate(
+                patch[:, :, channel],
+                template[:, :, channel],
+                cv2.TM_CCOEFF_NORMED,
+            )
+            channel_scores.append(float(score_map[0, 0]))
+        return min(channel_scores)
+
+    def _verify_candidate(
+        self,
+        source: np.ndarray,
+        template: np.ndarray,
+        x: int,
+        y: int,
+        gray_score: float,
+        threshold: float,
+    ) -> Optional[MatchResult]:
+        """
+        对灰度粗匹配得到的候选位置做颜色二次校验。
+
+        Args:
+            source: 源图像（BGR）。
+            template: 模板图像（BGR）。
+            x: 候选左上角 x。
+            y: 候选左上角 y。
+            gray_score: 灰度匹配分数。
+            threshold: 匹配阈值。
+
+        Returns:
+            Optional[MatchResult]: 通过颜色校验则返回结果，否则 None。
+        """
+        h, w = template.shape[:2]
+        patch = source[y : y + h, x : x + w]
+        if patch.shape[0] != h or patch.shape[1] != w:
+            return None
+
+        color_score = self._color_similarity(patch, template)
+        # 最终置信度取灰度与颜色的较低值，两者都必须过阈值
+        confidence = float(min(gray_score, color_score))
+        if confidence < threshold:
+            return None
+
+        return MatchResult(
+            confidence=confidence,
+            bbox=BoundingBox(x=int(x), y=int(y), width=w, height=h),
+            center=Point(x=int(x) + w // 2, y=int(y) + h // 2),
+        )
+
     def match_template(
         self,
         source_data: bytes | str,
@@ -47,6 +118,8 @@ class ImageMatcher:
     ) -> ImageMatchResult:
         """
         精确模板匹配。
+
+        流程：灰度粗匹配定位 → 候选区域颜色二次校验。
 
         Args:
             source_data: 源图像（大图）。
@@ -64,36 +137,29 @@ class ImageMatcher:
             source = decode_image(source_data)
             template = decode_image(template_data)
 
-            # 转换为灰度图
+            # 灰度粗匹配（快速定位）
             source_gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
             template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
-            # 模板匹配
             result = cv2.matchTemplate(
                 source_gray, template_gray, cv2.TM_CCOEFF_NORMED
             )
 
             # 查找最佳匹配
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            _min_val, max_val, _min_loc, max_loc = cv2.minMaxLoc(result)
 
             matches = []
             if max_val >= threshold:
-                h, w = template_gray.shape
-                matches.append(
-                    MatchResult(
-                        confidence=max_val,
-                        bbox=BoundingBox(
-                            x=max_loc[0],
-                            y=max_loc[1],
-                            width=w,
-                            height=h,
-                        ),
-                        center=Point(
-                            x=max_loc[0] + w // 2,
-                            y=max_loc[1] + h // 2,
-                        ),
-                    )
+                verified = self._verify_candidate(
+                    source=source,
+                    template=template,
+                    x=max_loc[0],
+                    y=max_loc[1],
+                    gray_score=float(max_val),
+                    threshold=threshold,
                 )
+                if verified is not None:
+                    matches.append(verified)
 
             duration_ms = int((time.time() - start_time) * 1000)
 
@@ -122,6 +188,7 @@ class ImageMatcher:
         多目标模板匹配。
 
         在源图像中查找所有匹配的模板位置。
+        流程：灰度粗匹配 → 非极大值抑制 → 颜色二次校验。
 
         Args:
             source_data: 源图像（大图）。
@@ -139,11 +206,10 @@ class ImageMatcher:
             source = decode_image(source_data)
             template = decode_image(template_data)
 
-            # 转换为灰度图
+            # 灰度粗匹配
             source_gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
             template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
-            # 模板匹配
             result = cv2.matchTemplate(
                 source_gray, template_gray, cv2.TM_CCOEFF_NORMED
             )
@@ -170,7 +236,7 @@ class ImageMatcher:
                     overlap = False
                     for p in picked:
                         px, py, pw, ph, _ = p
-                        # 计算 IoU
+                        # 计算重叠
                         x1 = max(x, px)
                         y1 = max(y, py)
                         x2 = min(x + rw, px + pw)
@@ -180,13 +246,20 @@ class ImageMatcher:
                             break
                     if not overlap:
                         picked.append(rect)
-                        matches.append(
-                            MatchResult(
-                                confidence=conf,
-                                bbox=BoundingBox(x=x, y=y, width=rw, height=rh),
-                                center=Point(x=x + rw // 2, y=y + rh // 2),
-                            )
-                        )
+
+                # 颜色二次校验：过滤形状相似但颜色不同的候选
+                for rect in picked:
+                    x, y, _rw, _rh, conf = rect
+                    verified = self._verify_candidate(
+                        source=source,
+                        template=template,
+                        x=int(x),
+                        y=int(y),
+                        gray_score=float(conf),
+                        threshold=threshold,
+                    )
+                    if verified is not None:
+                        matches.append(verified)
 
             duration_ms = int((time.time() - start_time) * 1000)
 
