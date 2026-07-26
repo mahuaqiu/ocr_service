@@ -28,7 +28,9 @@
       "Bash(docker-compose logs *)",
       "Bash(.venv\\\\Scripts\\\\activate)",
       "Bash(docker-compose restart *)",
-      "WebSearch"
+      "WebSearch",
+      "PowerShell(.\\\\venv\\\\Scripts\\\\Activate.ps1; python -m pytest tests/test_image_matcher_color.py -v)",
+      "PowerShell(git *)"
     ]
   }
 }
