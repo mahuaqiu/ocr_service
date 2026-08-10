@@ -144,20 +144,18 @@ def resize_image_with_scale(
         return image, 1.0
 
     h, w = image.shape[:2]
-    actual_scale = 1.0
 
-    if max_width is not None and w > max_width:
-        actual_scale = max_width / w
-        w = max_width
-        h = int(h * actual_scale)
-
-    if max_height is not None and h > max_height:
-        actual_scale = max_height / (h / actual_scale) if actual_scale < 1.0 else max_height / image.shape[0]
-        h = max_height
-        w = int(w * actual_scale) if actual_scale < 1.0 else w
+    # 分别计算宽度和高度方向所需的缩放比例，取更小值以保证等比缩放，
+    # 避免宽高都超限时因先后两次独立计算比例导致图像被非等比拉伸，
+    # 进而使还原坐标时 x/y 轴使用同一个 scale 却对应不同的实际缩放量。
+    width_scale = max_width / w if max_width is not None and w > max_width else 1.0
+    height_scale = max_height / h if max_height is not None and h > max_height else 1.0
+    actual_scale = min(width_scale, height_scale)
 
     if actual_scale < 1.0:
-        return cv2.resize(image, (w, h)), actual_scale
+        new_w = int(w * actual_scale)
+        new_h = int(h * actual_scale)
+        return cv2.resize(image, (new_w, new_h)), actual_scale
     return image, 1.0
 
 
