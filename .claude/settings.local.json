@@ -30,7 +30,13 @@
       "Bash(docker-compose restart *)",
       "WebSearch",
       "PowerShell(.\\\\venv\\\\Scripts\\\\Activate.ps1; python -m pytest tests/test_image_matcher_color.py -v)",
-      "PowerShell(git *)"
+      "PowerShell(git *)",
+      "Bash(xargs -I{} echo {})",
+      "Bash(cat)",
+      "Bash(venv/Scripts/python.exe /tmp/repro_resize.py)",
+      "Bash(venv/Scripts/python.exe -m pytest tests/test_image_utils_resize.py -v)",
+      "Bash(venv/Scripts/python.exe -m pytest tests/ -v)",
+      "Bash(venv/Scripts/python.exe *)"
     ]
   }
 }
