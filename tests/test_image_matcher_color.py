@@ -155,3 +155,57 @@ def test_color_score_calibration():
         np.zeros((10, 10, 3), np.uint8), np.zeros((11, 11, 3), np.uint8)
     )
     assert s == 0.0
+
+
+# 测试图目录：C:\Users\Administrator\Downloads\test
+TEST_IMG_DIR = Path(r"C:\Users\Administrator\Downloads\test")
+
+
+def _encode_file_jpeg90(name: str) -> str:
+    """读取测试图 -> JPEG q=90 重编码 -> Base64（模拟 worker ocr_client.match_image 链路）。"""
+    img = cv2.imdecode(np.fromfile(str(TEST_IMG_DIR / name), dtype=np.uint8), cv2.IMREAD_COLOR)
+    assert img is not None, f"load fail: {name}"
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    assert ok
+    return base64.b64encode(buf.tobytes()).decode("utf-8")
+
+
+@pytest.fixture
+def real_matcher() -> ImageMatcher:
+    return ImageMatcher(ServiceConfig(default_match_threshold=0.9, default_match_method="template"))
+
+
+@pytest.mark.skipif(not TEST_IMG_DIR.exists(), reason="测试图目录不存在")
+@pytest.mark.parametrize("src,tpl", [
+    ("11.png", "22.png"),
+    ("11.png", "33.png"),
+    ("1.png", "4.png"),
+    ("1.png", "2.png"),
+    ("1.png", "3.png"),
+])
+def test_real_positive_pairs_match_under_jpeg(real_matcher, src, tpl):
+    """正样本：双方 JPEG q=90 后仍应命中（confidence=gray≥0.9，且颜色关通过）。"""
+    result = real_matcher.match_template(
+        source_data=_encode_file_jpeg90(src),
+        template_data=_encode_file_jpeg90(tpl),
+        threshold=0.9,
+    )
+    assert result.status == "success"
+    assert len(result.matches) == 1, f"{tpl} in {src} 应命中，实际 {len(result.matches)}"
+    assert result.matches[0].confidence >= 0.9
+
+
+@pytest.mark.skipif(not TEST_IMG_DIR.exists(), reason="测试图目录不存在")
+@pytest.mark.parametrize("src,tpl", [
+    ("1.png", "5.png"),
+    ("1.png", "6.png"),
+])
+def test_real_negative_pairs_rejected_by_color_gate(real_matcher, src, tpl):
+    """负样本（细红线）：灰度关可能过，但颜色关必须淘汰，最终无匹配。"""
+    result = real_matcher.match_template(
+        source_data=_encode_file_jpeg90(src),
+        template_data=_encode_file_jpeg90(tpl),
+        threshold=0.9,
+    )
+    assert result.status == "success"
+    assert result.matches == [], f"{tpl} in {src} 不应命中，实际 {result.matches}"

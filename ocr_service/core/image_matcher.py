@@ -2,9 +2,13 @@
 图像匹配引擎。
 
 基于 OpenCV 实现模板匹配和特征匹配。
-模板匹配采用「灰度粗匹配 + 颜色二次校验」，避免仅形状相似、颜色不同时的误匹配。
+模板匹配采用「灰度关 + 颜色关」两道独立关卡：
+1) 灰度 TM_CCOEFF_NORMED 定位候选；
+2) 候选区域 Lab ΔE 极大色差像素占比线性打分过滤。
+两关都过阈值才命中，命中 confidence 返回灰度分。
 """
 
+import logging
 import time
 from typing import Optional
 
@@ -19,6 +23,8 @@ from ocr_service.models.match_result import (
     Point,
 )
 from ocr_service.utils.image_utils import decode_image
+
+logger = logging.getLogger(__name__)
 
 
 class ImageMatcher:
@@ -83,35 +89,46 @@ class ImageMatcher:
         threshold: float,
     ) -> Optional[MatchResult]:
         """
-        对灰度粗匹配得到的候选位置做颜色二次校验。
+        对灰度关通过的候选做颜色关二次校验。
+
+        两道关卡：
+        - 灰度关已在外层通过（gray_score >= threshold）；
+        - 颜色关：color_score >= threshold 才通过。
+        命中时 confidence 返回灰度分（兼容调用方「相似度」语义）。
 
         Args:
             source: 源图像（BGR）。
             template: 模板图像（BGR）。
             x: 候选左上角 x。
             y: 候选左上角 y。
-            gray_score: 灰度匹配分数。
-            threshold: 匹配阈值。
+            gray_score: 灰度匹配分数（第1关分数）。
+            threshold: 两关共同门槛。
 
         Returns:
-            Optional[MatchResult]: 通过颜色校验则返回结果，否则 None。
+            Optional[MatchResult]: 两关都过则返回结果，否则 None。
         """
         h, w = template.shape[:2]
         patch = source[y : y + h, x : x + w]
         if patch.shape[0] != h or patch.shape[1] != w:
             return None
 
-        color_score = self._color_similarity(patch, template)
-        # 最终置信度取灰度与颜色的较低值，两者都必须过阈值
-        confidence = float(min(gray_score, color_score))
-        if confidence < threshold:
-            return None
-
-        return MatchResult(
-            confidence=confidence,
-            bbox=BoundingBox(x=int(x), y=int(y), width=w, height=h),
-            center=Point(x=int(x) + w // 2, y=int(y) + h // 2),
+        color_score, frac = self._color_score(patch, template)
+        passed = color_score >= threshold
+        if passed:
+            logger.info(
+                f"[MATCH] color pass: {color_score:.4f} frac={frac:.4f} "
+                f"@ ({x},{y}) (de>{self.COLOR_DE_THRESHOLD}, a={self.COLOR_FRAC_ALPHA:.4f}, thr={threshold})"
+            )
+            return MatchResult(
+                confidence=float(gray_score),
+                bbox=BoundingBox(x=int(x), y=int(y), width=w, height=h),
+                center=Point(x=int(x) + w // 2, y=int(y) + h // 2),
+            )
+        logger.info(
+            f"[MATCH] color fail: {color_score:.4f} frac={frac:.4f} < thr={threshold} "
+            f"@ ({x},{y}) (de>{self.COLOR_DE_THRESHOLD})"
         )
+        return None
 
     def match_template(
         self,
@@ -122,12 +139,12 @@ class ImageMatcher:
         """
         精确模板匹配。
 
-        流程：灰度粗匹配定位 → 候选区域颜色二次校验。
+        流程：灰度关定位 → 颜色关二次校验，两关都过才命中。
 
         Args:
             source_data: 源图像（大图）。
             template_data: 模板图像（小图）。
-            threshold: 匹配阈值，默认使用配置中的阈值。
+            threshold: 两关共同阈值，默认使用配置中的阈值。
 
         Returns:
             ImageMatchResult: 匹配结果。
@@ -136,49 +153,71 @@ class ImageMatcher:
         threshold = threshold or self.config.default_match_threshold
 
         try:
-            # 解码图像
             source = decode_image(source_data)
             template = decode_image(template_data)
 
-            # 灰度粗匹配（快速定位）
+            logger.info(
+                f"[MATCH] start src={source.shape[1]}x{source.shape[0]} "
+                f"tpl={template.shape[1]}x{template.shape[0]} thr={threshold} multi=False"
+            )
+
+            # template 任一边大于 source：无匹配
+            if template.shape[0] > source.shape[0] or template.shape[1] > source.shape[1]:
+                logger.warning(
+                    f"[MATCH] template larger than source: "
+                    f"tpl={template.shape[:2]} src={source.shape[:2]}"
+                )
+                return ImageMatchResult(
+                    status="success",
+                    matches=[],
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+
             source_gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
             template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
-            result = cv2.matchTemplate(
-                source_gray, template_gray, cv2.TM_CCOEFF_NORMED
-            )
-
-            # 查找最佳匹配
+            result = cv2.matchTemplate(source_gray, template_gray, cv2.TM_CCOEFF_NORMED)
             _min_val, max_val, _min_loc, max_loc = cv2.minMaxLoc(result)
+            gray_score = float(max_val)
 
             matches = []
-            if max_val >= threshold:
+            if gray_score >= threshold:
+                logger.info(
+                    f"[MATCH] gray pass: {gray_score:.4f} @ ({max_loc[0]},{max_loc[1]}) gate={threshold}"
+                )
                 verified = self._verify_candidate(
                     source=source,
                     template=template,
                     x=max_loc[0],
                     y=max_loc[1],
-                    gray_score=float(max_val),
+                    gray_score=gray_score,
                     threshold=threshold,
                 )
                 if verified is not None:
                     matches.append(verified)
+            else:
+                logger.info(
+                    f"[MATCH] gray fail: {gray_score:.4f} < thr={threshold} @ ({max_loc[0]},{max_loc[1]})"
+                )
 
             duration_ms = int((time.time() - start_time) * 1000)
-
+            logger.info(
+                f"[MATCH] done hits={len(matches)} duration_ms={duration_ms}"
+                + (
+                    f" | hit gray={matches[0].confidence:.4f} bbox=({matches[0].bbox.x},{matches[0].bbox.y},{matches[0].bbox.width},{matches[0].bbox.height})"
+                    if matches
+                    else ""
+                )
+            )
             return ImageMatchResult(
-                status="success",
-                matches=matches,
-                duration_ms=duration_ms,
+                status="success", matches=matches, duration_ms=duration_ms
             )
 
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
+            logger.exception(f"[MATCH] error duration_ms={duration_ms}")
             return ImageMatchResult(
-                status="error",
-                matches=[],
-                duration_ms=duration_ms,
-                error=str(e),
+                status="error", matches=[], duration_ms=duration_ms, error=str(e)
             )
 
     def match_all(
@@ -191,12 +230,12 @@ class ImageMatcher:
         多目标模板匹配。
 
         在源图像中查找所有匹配的模板位置。
-        流程：灰度粗匹配 → 非极大值抑制 → 颜色二次校验。
+        流程：灰度关（>=阈值的位置）→ 非极大值抑制 → 颜色关二次校验。
 
         Args:
             source_data: 源图像（大图）。
             template_data: 模板图像（小图）。
-            threshold: 匹配阈值。
+            threshold: 两关共同阈值。
 
         Returns:
             ImageMatchResult: 匹配结果（可能包含多个匹配）。
@@ -205,41 +244,50 @@ class ImageMatcher:
         threshold = threshold or self.config.default_match_threshold
 
         try:
-            # 解码图像
             source = decode_image(source_data)
             template = decode_image(template_data)
 
-            # 灰度粗匹配
+            logger.info(
+                f"[MATCH] start src={source.shape[1]}x{source.shape[0]} "
+                f"tpl={template.shape[1]}x{template.shape[0]} thr={threshold} multi=True"
+            )
+
+            if template.shape[0] > source.shape[0] or template.shape[1] > source.shape[1]:
+                logger.warning(
+                    f"[MATCH] template larger than source: "
+                    f"tpl={template.shape[:2]} src={source.shape[:2]}"
+                )
+                return ImageMatchResult(
+                    status="success",
+                    matches=[],
+                    duration_ms=int((time.time() - start_time) * 1000),
+                )
+
             source_gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
             template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
 
-            result = cv2.matchTemplate(
-                source_gray, template_gray, cv2.TM_CCOEFF_NORMED
-            )
+            result = cv2.matchTemplate(source_gray, template_gray, cv2.TM_CCOEFF_NORMED)
 
             h, w = template_gray.shape
-            matches = []
-
-            # 查找所有超过阈值的位置
             locations = np.where(result >= threshold)
-
-            # 使用非极大值抑制去除重叠的匹配
             rectangles = []
             for pt in zip(*locations[::-1]):
                 rectangles.append([pt[0], pt[1], w, h, result[pt[1], pt[0]]])
 
-            if rectangles:
-                # 按位置排序（从上到下、从左到右），y 越小越靠上，x 越小越靠左
-                rectangles.sort(key=lambda x: (x[1], x[0]))
+            logger.info(
+                f"[MATCH] gray candidates: {len(rectangles)} (>=thr={threshold})"
+            )
 
-                # 简单的非极大值抑制
-                picked = []
+            # 非极大值抑制
+            picked = []
+            if rectangles:
+                # 按位置排序（从上到下、从左到右）
+                rectangles.sort(key=lambda x: (x[1], x[0]))
                 for rect in rectangles:
                     x, y, rw, rh, conf = rect
                     overlap = False
                     for p in picked:
                         px, py, pw, ph, _ = p
-                        # 计算重叠
                         x1 = max(x, px)
                         y1 = max(y, py)
                         x2 = min(x + rw, px + pw)
@@ -250,35 +298,35 @@ class ImageMatcher:
                     if not overlap:
                         picked.append(rect)
 
-                # 颜色二次校验：过滤形状相似但颜色不同的候选
-                for rect in picked:
-                    x, y, _rw, _rh, conf = rect
-                    verified = self._verify_candidate(
-                        source=source,
-                        template=template,
-                        x=int(x),
-                        y=int(y),
-                        gray_score=float(conf),
-                        threshold=threshold,
-                    )
-                    if verified is not None:
-                        matches.append(verified)
+            logger.info(f"[MATCH] nms picked: {len(picked)}")
+
+            matches = []
+            for rect in picked:
+                x, y, _rw, _rh, conf = rect
+                verified = self._verify_candidate(
+                    source=source,
+                    template=template,
+                    x=int(x),
+                    y=int(y),
+                    gray_score=float(conf),
+                    threshold=threshold,
+                )
+                if verified is not None:
+                    matches.append(verified)
 
             duration_ms = int((time.time() - start_time) * 1000)
-
+            logger.info(
+                f"[MATCH] done hits={len(matches)} duration_ms={duration_ms}"
+            )
             return ImageMatchResult(
-                status="success",
-                matches=matches,
-                duration_ms=duration_ms,
+                status="success", matches=matches, duration_ms=duration_ms
             )
 
         except Exception as e:
             duration_ms = int((time.time() - start_time) * 1000)
+            logger.exception(f"[MATCH] error duration_ms={duration_ms}")
             return ImageMatchResult(
-                status="error",
-                matches=[],
-                duration_ms=duration_ms,
-                error=str(e),
+                status="error", matches=[], duration_ms=duration_ms, error=str(e)
             )
 
     def match_feature(
