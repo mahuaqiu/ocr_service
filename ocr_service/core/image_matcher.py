@@ -40,35 +40,38 @@ class ImageMatcher:
         """
         self.config = config or get_config()
 
-    @staticmethod
-    def _color_similarity(patch: np.ndarray, template: np.ndarray) -> float:
-        """
-        计算候选区域与模板的颜色相似度。
+    # 颜色关参数：极大色差 ΔE 门槛；frac 到该比例时 color 归零（1%→0.85，2%→0.70）
+    COLOR_DE_THRESHOLD: int = 30
+    COLOR_FRAC_ALPHA: float = 1.0 / 15
 
-        对 B/G/R 三通道分别做归一化相关，取最小值。
-        任一通道颜色差异大时分数会被拉低，从而过滤「形状像但颜色不对」的候选。
+    @staticmethod
+    def _color_score(patch: np.ndarray, template: np.ndarray) -> tuple[float, float]:
+        """
+        计算候选区域与模板的颜色相似度（极大色差像素占比线性打分）。
+
+        转到 Lab 空间逐像素算 ΔE，统计 ΔE > COLOR_DE_THRESHOLD 的像素占比 frac，
+        再线性打分 color = max(0, 1 - frac / COLOR_FRAC_ALPHA)。
+        - JPEG q=90 的常见小抖动 ΔE 多 <30，不计入；
+        - 细红线等颜色差异 ΔE 常远大于 30，会被计入，从而压低颜色分。
 
         Args:
             patch: 大图裁出的候选区域（BGR）。
             template: 模板图像（BGR）。
 
         Returns:
-            float: 颜色相似度，范围约 [-1, 1]，越高越相似。
+            tuple[float, float]: (color_score, frac)。color_score ∈ [0,1]，frac ∈ [0,1]。
         """
         if patch.shape[:2] != template.shape[:2]:
-            return 0.0
+            return 0.0, 1.0
         if patch.size == 0 or template.size == 0:
-            return 0.0
+            return 0.0, 1.0
 
-        channel_scores = []
-        for channel in range(3):
-            score_map = cv2.matchTemplate(
-                patch[:, :, channel],
-                template[:, :, channel],
-                cv2.TM_CCOEFF_NORMED,
-            )
-            channel_scores.append(float(score_map[0, 0]))
-        return min(channel_scores)
+        patch_lab = cv2.cvtColor(patch, cv2.COLOR_BGR2LAB).astype(np.float32)
+        template_lab = cv2.cvtColor(template, cv2.COLOR_BGR2LAB).astype(np.float32)
+        de = np.sqrt(np.sum((patch_lab - template_lab) ** 2, axis=2))
+        frac = float((de > ImageMatcher.COLOR_DE_THRESHOLD).mean())
+        score = max(0.0, 1.0 - frac / ImageMatcher.COLOR_FRAC_ALPHA)
+        return score, frac
 
     def _verify_candidate(
         self,

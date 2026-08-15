@@ -117,3 +117,41 @@ def test_default_match_threshold_is_0_9():
 
     config = ServiceConfig()
     assert config.default_match_threshold == 0.9
+
+
+def test_color_score_calibration():
+    """颜色打分按极大色差像素占比线性计：1%→0.85、2%→0.70、≥6.67%→0。"""
+    matcher = ImageMatcher()
+    h, w = 100, 100  # 10000 像素
+
+    def make(ratio_red: float):
+        """构造 template=纯灰底；patch=灰底 + ratio_red 比例的纯红像素（ΔE 远>30）。"""
+        tpl = np.full((h, w, 3), 128, dtype=np.uint8)
+        patch = tpl.copy()
+        n = int(h * w * ratio_red)
+        if n > 0:
+            # 无重复采样，保证 frac 精确等于 ratio_red
+            idx = np.random.default_rng(0).choice(h * w, n, replace=False)
+            ys, xs = np.divmod(idx, w)
+            patch[ys, xs] = (0, 0, 255)  # BGR 红
+        return patch, tpl
+
+    # 0% -> 1.0
+    s, _ = matcher._color_score(*make(0.0))
+    assert abs(s - 1.0) < 1e-6
+    # 1% -> 0.85
+    s, frac = matcher._color_score(*make(0.01))
+    assert abs(frac - 0.01) < 1e-3
+    assert abs(s - 0.85) < 1e-3
+    # 2% -> 0.70
+    s, frac = matcher._color_score(*make(0.02))
+    assert abs(frac - 0.02) < 1e-3
+    assert abs(s - 0.70) < 1e-3
+    # 6.67% -> 0
+    s, _ = matcher._color_score(*make(0.0667))
+    assert s == 0.0
+    # 尺寸不匹配 -> 0
+    s, _ = matcher._color_score(
+        np.zeros((10, 10, 3), np.uint8), np.zeros((11, 11, 3), np.uint8)
+    )
+    assert s == 0.0
