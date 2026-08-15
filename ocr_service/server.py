@@ -176,12 +176,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 
 class RequestResponseFilter(logging.Filter):
-    """日志过滤器：允许 REQUEST/RESPONSE、OCR_RAW 和错误日志通过"""
+    """日志过滤器：允许 REQUEST/RESPONSE、OCR_RAW、MATCH 和错误日志通过"""
 
     def filter(self, record):
         msg = record.getMessage()
-        # 允许包含 [REQUEST]、[RESPONSE]、[OCR_RAW] 或 ERROR 级别的日志
-        return "[REQUEST]" in msg or "[RESPONSE]" in msg or "[OCR_RAW]" in msg or record.levelno >= logging.ERROR
+        # 允许包含 [REQUEST]、[RESPONSE]、[OCR_RAW]、[MATCH] 或 ERROR 级别的日志
+        return "[REQUEST]" in msg or "[RESPONSE]" in msg or "[OCR_RAW]" in msg or "[MATCH]" in msg or record.levelno >= logging.ERROR
 
 
 def setup_logging():
