@@ -26,9 +26,6 @@ class Point:
     x: int
     y: int
 
-    def to_dict(self) -> dict:
-        return {"x": self.x, "y": self.y}
-
 
 @dataclass
 class TextBlock:
@@ -38,14 +35,6 @@ class TextBlock:
     confidence: float
     bbox: list[list[int]]  # 四角坐标 [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
     center: Point
-
-    def to_dict(self) -> dict:
-        return {
-            "text": self.text,
-            "confidence": round(self.confidence, 4),
-            "bbox": self.bbox,
-            "center": self.center.to_dict(),
-        }
 
 
 @dataclass
@@ -124,13 +113,3 @@ class OCRResult:
                 texts.append(text_block)
 
         return texts
-
-    def to_dict(self) -> dict:
-        result = {
-            "status": self.status,
-            "texts": [t.to_dict() for t in self.texts],
-            "duration_ms": self.duration_ms,
-        }
-        if self.error:
-            result["error"] = self.error
-        return result

@@ -13,7 +13,6 @@ class ServiceConfig:
     # 服务配置
     host: str = "0.0.0.0"
     port: int = 8081
-    debug: bool = False
 
     # OCR 引擎配置
     ocr_lang: str = "ch"  # 默认中文
@@ -48,7 +47,6 @@ class ServiceConfig:
         return cls(
             host=os.getenv("OCR_HOST", "0.0.0.0"),
             port=int(os.getenv("OCR_PORT", "8081")),
-            debug=os.getenv("OCR_DEBUG", "false").lower() == "true",
             ocr_lang=os.getenv("OCR_LANG", "ch"),
             ocr_use_gpu=os.getenv("OCR_USE_GPU", "false").lower() == "true",
             ocr_version=os.getenv("OCR_VERSION", "PP-OCRv4"),
