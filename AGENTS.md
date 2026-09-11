@@ -46,6 +46,7 @@ pip install -r requirements.txt
 ocr_service/
 ├── server.py          # FastAPI 应用入口，创建 app 实例
 ├── config.py          # 配置管理，支持环境变量
+├── text_replacer.py   # 识别文本替换（配置中心拉取 + 启动/每日12点同步）
 ├── api/
 │   ├── routes.py      # API 路由定义
 │   └── schemas.py     # Pydantic 请求/响应模型
@@ -79,6 +80,9 @@ ocr_service/
 | OCR_USE_GPU | false | 是否使用 GPU |
 | OCR_MATCH_THRESHOLD | 0.9 | 默认匹配阈值 |
 | OCR_MATCH_METHOD | template | 默认匹配方法 |
+| OCR_CONFIG_CENTER_URL | （空） | 测试平台免鉴权查询地址，空=禁用替换功能 |
+| OCR_CONFIG_CENTER_KEY | ocr_config | 拉取的替换配置键 |
+| OCR_CONFIG_CENTER_TIMEOUT | 5.0 | 配置拉取请求超时（秒） |
 
 ## API 端点
 

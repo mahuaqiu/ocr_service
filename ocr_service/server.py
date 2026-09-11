@@ -13,9 +13,12 @@ Usage:
 """
 
 import argparse
+import asyncio
 import json
 import os
 import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from typing import Any
 
@@ -27,6 +30,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from ocr_service import __version__
 from ocr_service.api.routes import router
 from ocr_service.config import ServiceConfig, get_config, set_config
+from ocr_service.text_replacer import refresh_replace_map
 from ocr_service.utils.request_context import get_request_id, set_request_id, clear_request_id
 
 # 使用根日志记录器，确保日志能写入文件和控制台
@@ -180,8 +184,8 @@ class RequestResponseFilter(logging.Filter):
 
     def filter(self, record):
         msg = record.getMessage()
-        # 允许包含 [REQUEST]、[RESPONSE]、[OCR_RAW]、[MATCH] 或 ERROR 级别的日志
-        return "[REQUEST]" in msg or "[RESPONSE]" in msg or "[OCR_RAW]" in msg or "[MATCH]" in msg or record.levelno >= logging.ERROR
+        # 允许包含 [REQUEST]、[RESPONSE]、[OCR_RAW]、[MATCH]、[CONFIG] 或 ERROR 级别的日志
+        return "[REQUEST]" in msg or "[RESPONSE]" in msg or "[OCR_RAW]" in msg or "[MATCH]" in msg or "[CONFIG]" in msg or record.levelno >= logging.ERROR
 
 
 def setup_logging():
@@ -223,6 +227,67 @@ def setup_logging():
     console_handler.setFormatter(console_formatter)
     app_logger.addHandler(console_handler)
 
+def _seconds_until_next_noon(now: datetime = None) -> float:
+    """距下一个本地时间 12:00 的秒数。"""
+    now = now or datetime.now()
+    target = now.replace(hour=12, minute=0, second=0, microsecond=0)
+    if target <= now:
+        target += timedelta(days=1)
+    return (target - now).total_seconds()
+
+
+async def _config_refresh_loop(url: str, key: str, timeout: float) -> None:
+    """每天 12:00 拉取替换配置；失败则每 10 分钟重试直到成功。"""
+    while True:
+        wait_seconds = _seconds_until_next_noon()
+        logger.info("[CONFIG] 下一次替换配置同步在 %.0f 秒后", wait_seconds)
+        await asyncio.sleep(wait_seconds)
+        while not await refresh_replace_map(url, key, timeout):
+            logger.error("[CONFIG] 定时刷新失败，10 分钟后重试")
+            await asyncio.sleep(10 * 60)
+
+
+async def _pull_config_on_startup(url: str, key: str, timeout: float) -> None:
+    """启动时拉取替换配置，最多 3 次（间隔 0/2/4 秒），失败不阻塞启动。"""
+    for attempt, delay in enumerate((0, 2, 4), start=1):
+        if delay:
+            await asyncio.sleep(delay)
+        if await refresh_replace_map(url, key, timeout):
+            return
+        logger.error("[CONFIG] 启动拉取替换配置失败(第 %d/3 次)", attempt)
+    logger.error("[CONFIG] 启动拉取替换配置最终失败，以空规则运行，等待定时任务重试")
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """应用生命周期：启动拉取替换配置，并注册每日 12:00 定时刷新任务。"""
+    config = get_config()
+    refresh_task = None
+    if config.config_center_url:
+        logger.info(
+            "[CONFIG] 检测到配置中心地址，开始拉取替换配置: %s", config.config_center_url
+        )
+        await _pull_config_on_startup(
+            config.config_center_url, config.config_center_key, config.config_center_timeout
+        )
+        refresh_task = asyncio.create_task(
+            _config_refresh_loop(
+                config.config_center_url, config.config_center_key, config.config_center_timeout
+            )
+        )
+    else:
+        logger.info("[CONFIG] 未配置 OCR_CONFIG_CENTER_URL，跳过替换配置拉取")
+
+    yield
+
+    if refresh_task:
+        refresh_task.cancel()
+        try:
+            await refresh_task
+        except asyncio.CancelledError:
+            pass
+
+
 def create_app(config: ServiceConfig = None) -> FastAPI:
     """
     创建 FastAPI 应用实例。
@@ -247,6 +312,7 @@ def create_app(config: ServiceConfig = None) -> FastAPI:
         version=__version__,
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=_lifespan,
     )
 
     # CORS 中间件

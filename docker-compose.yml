@@ -60,6 +60,14 @@ services:
       # 默认匹配方法 (template=精确匹配, feature=特征匹配)
       - OCR_MATCH_METHOD=template
 
+      # ==================== 配置中心（测试平台）替换配置 ====================
+      # 平台免鉴权查询地址（注释或留空=禁用替换功能），例如:
+      # - OCR_CONFIG_CENTER_URL=http://192.168.0.100:8000/api/public/config-center/query
+      # 拉取的配置键
+      - OCR_CONFIG_CENTER_KEY=ocr_config
+      # 请求超时（秒）
+      - OCR_CONFIG_CENTER_TIMEOUT=5
+
     volumes:
       # 挂载本地代码，方便开发调试
       - ./ocr_service:/service/ocr_service

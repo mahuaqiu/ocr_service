@@ -171,3 +171,29 @@ def test_refresh_replace_map_failure_keeps_old(monkeypatch):
         is False
     )
     assert apply_replacements("充许") == "允许"
+
+
+# ---------------- _seconds_until_next_noon ----------------
+
+def test_seconds_until_next_noon_before_noon():
+    from datetime import datetime
+
+    from ocr_service.server import _seconds_until_next_noon
+
+    assert _seconds_until_next_noon(datetime(2026, 9, 11, 6, 0, 0)) == 6 * 3600
+
+
+def test_seconds_until_next_noon_after_noon():
+    from datetime import datetime
+
+    from ocr_service.server import _seconds_until_next_noon
+
+    assert _seconds_until_next_noon(datetime(2026, 9, 11, 13, 0, 0)) == 23 * 3600
+
+
+def test_seconds_until_next_noon_exactly_noon():
+    from datetime import datetime
+
+    from ocr_service.server import _seconds_until_next_noon
+
+    assert _seconds_until_next_noon(datetime(2026, 9, 11, 12, 0, 0)) == 24 * 3600

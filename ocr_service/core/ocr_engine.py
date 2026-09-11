@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 from ocr_service.config import ServiceConfig, get_config
 from ocr_service.models.ocr_result import TextBlock, OCRResult, Point, remove_spaces
+from ocr_service.text_replacer import apply_replacements, get_replace_map
 from ocr_service.utils.image_utils import decode_image
 from ocr_service.core.image_preprocessor import (
     ImagePreprocessor,
@@ -191,6 +192,12 @@ class OCREngine:
 
             # 解析 PaddleOCR 3.x 结果
             texts = OCRResult.parse_from_paddleocr(ocr_result, confidence_threshold, scale)
+
+            # 应用配置中心替换规则（在所有 reg_/文本匹配之前）
+            replace_map = get_replace_map()
+            if replace_map:
+                for text_block in texts:
+                    text_block.text = apply_replacements(text_block.text)
 
             duration_ms = int((time.time() - start_time) * 1000)
 
