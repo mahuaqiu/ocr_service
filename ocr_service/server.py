@@ -236,26 +236,42 @@ def _seconds_until_next_noon(now: datetime = None) -> float:
     return (target - now).total_seconds()
 
 
-async def _config_refresh_loop(url: str, key: str, timeout: float) -> None:
-    """每天 12:00 拉取替换配置；失败则每 10 分钟重试直到成功。"""
+# 拉取失败后的重试间隔（秒）
+CONFIG_REFRESH_RETRY_INTERVAL = 10 * 60
+
+
+def _next_refresh_wait(last_success: bool) -> float:
+    """下次拉取的等待秒数：成功等到下一个 12:00，失败 10 分钟后重试。"""
+    return _seconds_until_next_noon() if last_success else CONFIG_REFRESH_RETRY_INTERVAL
+
+
+async def _config_refresh_loop(
+    url: str, key: str, timeout: float, startup_success: bool
+) -> None:
+    """拉取替换配置：失败 10 分钟后重试，成功后每天 12:00 定时同步。
+
+    startup_success 为启动拉取的结果；为 False 时首次尝试在 10 分钟内，
+    而不是等到下一个 12:00。
+    """
+    wait_seconds = _next_refresh_wait(startup_success)
     while True:
-        wait_seconds = _seconds_until_next_noon()
         logger.info("[CONFIG] 下一次替换配置同步在 %.0f 秒后", wait_seconds)
         await asyncio.sleep(wait_seconds)
-        while not await refresh_replace_map(url, key, timeout):
-            logger.error("[CONFIG] 定时刷新失败，10 分钟后重试")
-            await asyncio.sleep(10 * 60)
+        wait_seconds = _next_refresh_wait(
+            await refresh_replace_map(url, key, timeout)
+        )
 
 
-async def _pull_config_on_startup(url: str, key: str, timeout: float) -> None:
-    """启动时拉取替换配置，最多 3 次（间隔 0/2/4 秒），失败不阻塞启动。"""
+async def _pull_config_on_startup(url: str, key: str, timeout: float) -> bool:
+    """启动时拉取替换配置，最多 3 次（间隔 0/2/4 秒）。失败不阻塞启动。"""
     for attempt, delay in enumerate((0, 2, 4), start=1):
         if delay:
             await asyncio.sleep(delay)
         if await refresh_replace_map(url, key, timeout):
-            return
+            return True
         logger.error("[CONFIG] 启动拉取替换配置失败(第 %d/3 次)", attempt)
-    logger.error("[CONFIG] 启动拉取替换配置最终失败，以空规则运行，等待定时任务重试")
+    logger.error("[CONFIG] 启动拉取替换配置最终失败，以空规则运行，10 分钟后自动重试")
+    return False
 
 
 @asynccontextmanager
@@ -267,12 +283,15 @@ async def _lifespan(app: FastAPI):
         logger.info(
             "[CONFIG] 检测到配置中心地址，开始拉取替换配置: %s", config.config_center_url
         )
-        await _pull_config_on_startup(
+        startup_success = await _pull_config_on_startup(
             config.config_center_url, config.config_center_key, config.config_center_timeout
         )
         refresh_task = asyncio.create_task(
             _config_refresh_loop(
-                config.config_center_url, config.config_center_key, config.config_center_timeout
+                config.config_center_url,
+                config.config_center_key,
+                config.config_center_timeout,
+                startup_success,
             )
         )
     else:
