@@ -36,7 +36,9 @@
       "Bash(venv/Scripts/python.exe /tmp/repro_resize.py)",
       "Bash(venv/Scripts/python.exe -m pytest tests/test_image_utils_resize.py -v)",
       "Bash(venv/Scripts/python.exe -m pytest tests/ -v)",
-      "Bash(venv/Scripts/python.exe *)"
+      "Bash(venv/Scripts/python.exe *)",
+      "PowerShell(.\\\\venv\\\\Scripts\\\\Activate.ps1; python -c \"import logging; from ocr_service.server import RequestResponseFilter; rec=logging.LogRecord\\('x',logging.INFO,'',0,'[MATCH] hello',None,None\\); print\\('PASS' if RequestResponseFilter\\(\\).filter\\(rec\\) else 'FAIL'\\); rec2=logging.LogRecord\\('x',logging.INFO,'',0,'no-prefix hello',None,None\\); print\\('PASS' if not RequestResponseFilter\\(\\).filter\\(rec2\\) else 'FAIL'\\)\")",
+      "PowerShell(pytest *)"
     ]
   }
 }
