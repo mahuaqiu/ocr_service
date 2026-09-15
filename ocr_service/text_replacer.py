@@ -6,33 +6,44 @@ OCR 识别文本替换配置。
 """
 
 import logging
-from typing import Dict
+import re
+from typing import Dict, Optional, Tuple
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-# 全局替换字典（键=待替换文本，值=替换后文本）；空字典表示不替换
-_replace_map: Dict[str, str] = {}
+# 全局替换状态（字典 + 预编译模式）作为整体原子换引用，读者只会看到完整旧表或完整新表。
+# 空字典表示不替换。模式为按 key 长度降序的 alternation：
+# 单趟替换保证 1) 最长匹配优先（与配置顺序无关）2) 替换结果不会被其它 key 再次扫描。
+_replace_state: Tuple[Dict[str, str], Optional[re.Pattern]] = ({}, None)
 
 
 def get_replace_map() -> Dict[str, str]:
     """获取当前替换字典。"""
-    return _replace_map
+    return _replace_state[0]
 
 
 def set_replace_map(mapping: Dict[str, str]) -> None:
-    """设置替换字典。"""
-    global _replace_map
-    _replace_map = dict(mapping)
+    """设置替换字典（空 key 直接过滤，预编译单趟替换模式）。"""
+    global _replace_state
+    rules = {key: value for key, value in mapping.items() if key}
+    if rules:
+        alternation = "|".join(
+            re.escape(key) for key in sorted(rules, key=len, reverse=True)
+        )
+        pattern: Optional[re.Pattern] = re.compile(alternation)
+    else:
+        pattern = None
+    _replace_state = (rules, pattern)
 
 
 def apply_replacements(text: str) -> str:
-    """按配置顺序对文本逐对替换。"""
-    for wrong, right in _replace_map.items():
-        if wrong:
-            text = text.replace(wrong, right)
-    return text
+    """对文本做单趟替换：最长匹配优先，替换产物不再参与匹配。"""
+    rules, pattern = _replace_state
+    if pattern is None or not text:
+        return text
+    return pattern.sub(lambda match: rules[match.group(0)], text)
 
 
 def parse_replace_map(data) -> Dict[str, str]:
@@ -70,7 +81,7 @@ async def refresh_replace_map(url: str, key: str, timeout: float) -> bool:
     except Exception as exc:
         logger.error(
             "[CONFIG] 替换配置拉取失败，保留旧配置(当前 %d 对): %s",
-            len(_replace_map),
+            len(get_replace_map()),
             exc,
         )
         return False

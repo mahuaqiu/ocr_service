@@ -42,10 +42,24 @@ def test_apply_replacements_empty_map_passthrough():
     assert apply_replacements("充许") == "充许"
 
 
-def test_apply_replacements_order_overlap():
-    """按配置顺序执行：A->B 且 B->C 会链式叠加（预期行为）。"""
+def test_apply_replacements_no_chaining():
+    """单趟替换：替换结果不会被其它 key 再次扫描（A->B 后不再触发 B->C）。"""
     set_replace_map({"A": "B", "B": "C"})
-    assert apply_replacements("A") == "C"
+    assert apply_replacements("A") == "B"
+
+
+def test_apply_replacements_value_not_rescanned():
+    """替换产物中即使包含其它 key，也不会被二次替换。"""
+    set_replace_map({"聊关": "聊天", "天": "无"})
+    assert apply_replacements("聊关") == "聊天"
+
+
+def test_apply_replacements_longest_match_wins_regardless_of_order():
+    """重叠 key 最长匹配优先，与配置顺序无关。"""
+    set_replace_map({"许": "x", "充许": "允许"})
+    assert apply_replacements("充许") == "允许"
+    set_replace_map({"充许": "允许", "许": "x"})
+    assert apply_replacements("充许") == "允许"
 
 
 def test_apply_replacements_skips_empty_key():
