@@ -14,6 +14,10 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+# 配置中心查询参数（固定值，不作可配置项）：配置键固定 ocr_config，拉取超时 5 秒
+CONFIG_CENTER_KEY = "ocr_config"
+FETCH_TIMEOUT = 5.0
+
 # 全局替换状态（字典 + 预编译模式）作为整体原子换引用，读者只会看到完整旧表或完整新表。
 # 空字典表示不替换。模式为按 key 长度降序的 alternation：
 # 单趟替换保证 1) 最长匹配优先（与配置顺序无关）2) 替换结果不会被其它 key 再次扫描。
@@ -21,11 +25,6 @@ _replace_state: Tuple[Dict[str, str], Optional[re.Pattern]] = ({}, None)
 
 # 上次成功应用替换配置的时间（ISO 格式）；None 表示尚未拉到过配置
 _last_updated_at: Optional[str] = None
-
-
-def get_replace_map() -> Dict[str, str]:
-    """获取当前替换字典。"""
-    return _replace_state[0]
 
 
 def set_replace_map(mapping: Dict[str, str]) -> None:
@@ -74,10 +73,10 @@ def _create_client(timeout: float) -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=timeout)
 
 
-async def fetch_replace_map(url: str, key: str, timeout: float) -> Dict[str, str]:
+async def fetch_replace_map(url: str) -> Dict[str, str]:
     """从配置中心拉取替换字典。"""
-    async with _create_client(timeout) as client:
-        response = await client.get(url, params={"key": key})
+    async with _create_client(FETCH_TIMEOUT) as client:
+        response = await client.get(url, params={"key": CONFIG_CENTER_KEY})
     if response.status_code != 200:
         raise RuntimeError(
             f"配置中心返回 HTTP {response.status_code}: {response.text[:200]}"
@@ -85,17 +84,21 @@ async def fetch_replace_map(url: str, key: str, timeout: float) -> Dict[str, str
     return parse_replace_map(response.json())
 
 
-async def refresh_replace_map(url: str, key: str, timeout: float) -> bool:
+async def refresh_replace_map(url: str) -> bool:
     """拉取并应用替换配置；失败保留旧配置。返回是否成功。"""
     try:
-        mapping = await fetch_replace_map(url, key, timeout)
+        mapping = await fetch_replace_map(url)
     except Exception as exc:
         logger.error(
             "[CONFIG] 替换配置拉取失败，保留旧配置(当前 %d 对): %s",
-            len(get_replace_map()),
+            len(_replace_state[0]),
             exc,
         )
         return False
     set_replace_map(mapping)
-    logger.info("[CONFIG] 替换配置已更新: key=%s, 共 %d 对规则", key, len(mapping))
+    logger.info(
+        "[CONFIG] 替换配置已更新: key=%s, 共 %d 对规则",
+        CONFIG_CENTER_KEY,
+        len(mapping),
+    )
     return True

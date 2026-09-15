@@ -245,9 +245,7 @@ def _next_refresh_wait(last_success: bool) -> float:
     return _seconds_until_next_noon() if last_success else CONFIG_REFRESH_RETRY_INTERVAL
 
 
-async def _config_refresh_loop(
-    url: str, key: str, timeout: float, startup_success: bool
-) -> None:
+async def _config_refresh_loop(url: str, startup_success: bool) -> None:
     """拉取替换配置：失败 10 分钟后重试，成功后每天 12:00 定时同步。
 
     startup_success 为启动拉取的结果；为 False 时首次尝试在 10 分钟内，
@@ -257,17 +255,15 @@ async def _config_refresh_loop(
     while True:
         logger.info("[CONFIG] 下一次替换配置同步在 %.0f 秒后", wait_seconds)
         await asyncio.sleep(wait_seconds)
-        wait_seconds = _next_refresh_wait(
-            await refresh_replace_map(url, key, timeout)
-        )
+        wait_seconds = _next_refresh_wait(await refresh_replace_map(url))
 
 
-async def _pull_config_on_startup(url: str, key: str, timeout: float) -> bool:
+async def _pull_config_on_startup(url: str) -> bool:
     """启动时拉取替换配置，最多 3 次（间隔 0/2/4 秒）。失败不阻塞启动。"""
     for attempt, delay in enumerate((0, 2, 4), start=1):
         if delay:
             await asyncio.sleep(delay)
-        if await refresh_replace_map(url, key, timeout):
+        if await refresh_replace_map(url):
             return True
         logger.error("[CONFIG] 启动拉取替换配置失败(第 %d/3 次)", attempt)
     logger.error("[CONFIG] 启动拉取替换配置最终失败，以空规则运行，10 分钟后自动重试")
@@ -283,16 +279,9 @@ async def _lifespan(app: FastAPI):
         logger.info(
             "[CONFIG] 检测到配置中心地址，开始拉取替换配置: %s", config.config_center_url
         )
-        startup_success = await _pull_config_on_startup(
-            config.config_center_url, config.config_center_key, config.config_center_timeout
-        )
+        startup_success = await _pull_config_on_startup(config.config_center_url)
         refresh_task = asyncio.create_task(
-            _config_refresh_loop(
-                config.config_center_url,
-                config.config_center_key,
-                config.config_center_timeout,
-                startup_success,
-            )
+            _config_refresh_loop(config.config_center_url, startup_success)
         )
     else:
         logger.info("[CONFIG] 未配置 OCR_CONFIG_CENTER_URL，跳过替换配置拉取")

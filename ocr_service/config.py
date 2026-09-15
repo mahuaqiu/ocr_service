@@ -36,10 +36,9 @@ class ServiceConfig:
     default_match_threshold: float = 0.9
     default_match_method: str = "template"  # template / feature
 
-    # 配置中心（测试平台）替换配置
+    # 配置中心（测试平台）替换配置：只有查询地址可配；
+    # 配置键固定 ocr_config、拉取超时固定 5 秒（见 text_replacer 常量）
     config_center_url: str = ""  # 免鉴权查询地址，空=禁用替换功能
-    config_center_key: str = "ocr_config"  # 拉取的配置键
-    config_center_timeout: float = 5.0  # 请求超时（秒）
 
     @classmethod
     def from_env(cls) -> "ServiceConfig":
@@ -66,8 +65,6 @@ class ServiceConfig:
             default_match_method=os.getenv("OCR_MATCH_METHOD", "template"),
             # 配置中心（测试平台）替换配置
             config_center_url=os.getenv("OCR_CONFIG_CENTER_URL", "").strip(),
-            config_center_key=os.getenv("OCR_CONFIG_CENTER_KEY", "ocr_config"),
-            config_center_timeout=float(os.getenv("OCR_CONFIG_CENTER_TIMEOUT", "5.0")),
         )
 
 

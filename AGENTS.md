@@ -80,9 +80,9 @@ ocr_service/
 | OCR_USE_GPU | false | 是否使用 GPU |
 | OCR_MATCH_THRESHOLD | 0.9 | 默认匹配阈值 |
 | OCR_MATCH_METHOD | template | 默认匹配方法 |
-| OCR_CONFIG_CENTER_URL | （空） | 测试平台免鉴权查询地址，空=禁用替换功能 |
-| OCR_CONFIG_CENTER_KEY | ocr_config | 拉取的替换配置键 |
-| OCR_CONFIG_CENTER_TIMEOUT | 5.0 | 配置拉取请求超时（秒） |
+| OCR_CONFIG_CENTER_URL | （空） | 测试平台免鉴权查询地址，空=禁用替换功能；部署时直写在 docker-compose.yml（唯一配置处） |
+
+注：替换配置键固定 `ocr_config`、拉取超时固定 5 秒，为代码常量（`ocr_service/text_replacer.py`），不作环境变量。
 
 ## API 端点
 

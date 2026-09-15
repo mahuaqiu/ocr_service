@@ -103,9 +103,7 @@ def test_fetch_replace_map_success(monkeypatch):
         text_replacer, "_create_client", lambda timeout: _mock_client(handler)
     )
     mapping = asyncio.run(
-        fetch_replace_map(
-            "http://platform/api/public/config-center/query", "ocr_config", 5.0
-        )
+        fetch_replace_map("http://platform/api/public/config-center/query")
     )
     assert mapping == {"充许": "允许", "聊关": "聊天"}
 
@@ -118,11 +116,7 @@ def test_fetch_replace_map_404(monkeypatch):
         text_replacer, "_create_client", lambda timeout: _mock_client(handler)
     )
     with pytest.raises(RuntimeError, match="404"):
-        asyncio.run(
-            fetch_replace_map(
-                "http://platform/api/public/config-center/query", "ocr_config", 5.0
-            )
-        )
+        asyncio.run(fetch_replace_map("http://platform/api/public/config-center/query"))
 
 
 def test_fetch_replace_map_invalid_json(monkeypatch):
@@ -133,11 +127,7 @@ def test_fetch_replace_map_invalid_json(monkeypatch):
         text_replacer, "_create_client", lambda timeout: _mock_client(handler)
     )
     with pytest.raises(Exception):
-        asyncio.run(
-            fetch_replace_map(
-                "http://platform/api/public/config-center/query", "ocr_config", 5.0
-            )
-        )
+        asyncio.run(fetch_replace_map("http://platform/api/public/config-center/query"))
 
 
 def test_fetch_replace_map_non_dict(monkeypatch):
@@ -148,11 +138,7 @@ def test_fetch_replace_map_non_dict(monkeypatch):
         text_replacer, "_create_client", lambda timeout: _mock_client(handler)
     )
     with pytest.raises(ValueError):
-        asyncio.run(
-            fetch_replace_map(
-                "http://platform/api/public/config-center/query", "ocr_config", 5.0
-            )
-        )
+        asyncio.run(fetch_replace_map("http://platform/api/public/config-center/query"))
 
 
 # ---------------- refresh_replace_map ----------------
@@ -165,7 +151,7 @@ def test_refresh_replace_map_success_updates_map(monkeypatch):
         text_replacer, "_create_client", lambda timeout: _mock_client(handler)
     )
     assert (
-        asyncio.run(refresh_replace_map("http://platform/q", "ocr_config", 5.0))
+        asyncio.run(refresh_replace_map("http://platform/q"))
         is True
     )
     assert apply_replacements("充许") == "允许"
@@ -181,7 +167,7 @@ def test_refresh_replace_map_failure_keeps_old(monkeypatch):
         text_replacer, "_create_client", lambda timeout: _mock_client(handler)
     )
     assert (
-        asyncio.run(refresh_replace_map("http://platform/q", "ocr_config", 5.0))
+        asyncio.run(refresh_replace_map("http://platform/q"))
         is False
     )
     assert apply_replacements("充许") == "允许"
@@ -245,7 +231,7 @@ def test_config_refresh_loop_retries_soon_after_failed_startup(monkeypatch):
         if len(waits) >= 2:
             raise _StopLoop
 
-    async def fake_refresh(url, key, timeout):
+    async def fake_refresh(url):
         return True
 
     monkeypatch.setattr(server.asyncio, "sleep", fake_sleep)
@@ -254,9 +240,7 @@ def test_config_refresh_loop_retries_soon_after_failed_startup(monkeypatch):
 
     with pytest.raises(_StopLoop):
         asyncio.run(
-            server._config_refresh_loop(
-                "http://platform/q", "ocr_config", 5.0, startup_success=False
-            )
+            server._config_refresh_loop("http://platform/q", startup_success=False)
         )
 
     assert waits[0] == 600.0  # 失败 → 10 分钟后首次重试
@@ -268,7 +252,7 @@ def test_pull_config_on_startup_returns_success_flag(monkeypatch):
 
     attempts = []
 
-    async def fake_refresh(url, key, timeout):
+    async def fake_refresh(url):
         attempts.append(1)
         return len(attempts) >= 2
 
@@ -278,5 +262,5 @@ def test_pull_config_on_startup_returns_success_flag(monkeypatch):
     monkeypatch.setattr(server, "refresh_replace_map", fake_refresh)
     monkeypatch.setattr(server.asyncio, "sleep", fake_sleep)
 
-    assert asyncio.run(server._pull_config_on_startup("http://p/q", "k", 5.0)) is True
+    assert asyncio.run(server._pull_config_on_startup("http://p/q")) is True
     assert len(attempts) == 2

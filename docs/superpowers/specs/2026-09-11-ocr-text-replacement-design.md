@@ -16,14 +16,14 @@ OCR 识别偶发错字（「允许」→「充许」、「聊天」→「聊关�
 ## 实现
 
 - 新文件 `ocr_service/text_replacer.py`：
-  - 替换字典单例 `get_replace_map()/set_replace_map()`（空字典=直通不替换，空 key 过滤）；
+  - 替换字典单例 `set_replace_map()`（空字典=直通不替换，空 key 过滤）；
   - `apply_replacements(text)`：按 key 长度降序预编译 alternation，单趟 `re.sub` —— 最长匹配优先、与配置顺序无关、替换结果不会被其它 key 再次扫描（避免 链式污染，如 `{"聊关":"聊天","天":"无"}` 不得把「聊关」变成「聊无」）；
-  - `fetch_replace_map()`（async httpx）：`GET {OCR_CONFIG_CENTER_URL}?key={OCR_CONFIG_CENTER_KEY}`，校验 `dict[str,str]`；
-  - `refresh_replace_map()`：成功换新 + `[CONFIG]` INFO 日志，失败保旧 + ERROR 日志。
-- `config.py` 新增：`OCR_CONFIG_CENTER_URL`（空=禁用）/ `OCR_CONFIG_CENTER_KEY`（默认 ocr_config）/ `OCR_CONFIG_CENTER_TIMEOUT`（默认 5s）。
+  - `fetch_replace_map(url)`（async httpx）：`GET {url}?key=ocr_config`（key/超时为模块常量 `CONFIG_CENTER_KEY`/`FETCH_TIMEOUT`），校验 `dict[str,str]`；
+  - `refresh_replace_map(url)`：成功换新 + `[CONFIG]` INFO 日志，失败保旧 + ERROR 日志。
+- `config.py` 新增：仅 `config_center_url`（环境变量 `OCR_CONFIG_CENTER_URL`，空=禁用）。
 - `core/ocr_engine.py`：`recognize()` 中 parse 之后逐块替换；`[OCR_RAW]` 日志仍打印替换前原文，便于排查。
 - `server.py`：`create_app()` 增加 lifespan——启动拉取 + asyncio 后台任务（睡到下一个 12:00 → 刷新；失败 10 分钟后重试；关闭取消）；日志过滤器放行 `[CONFIG]` 标签；未配置 URL 时整段跳过。
-- `docker-compose.yml`：透传 `OCR_CONFIG_CENTER_URL`/`OCR_CONFIG_CENTER_KEY`。
+- `docker-compose.yml`：直写 `OCR_CONFIG_CENTER_URL`（唯一配置处，key/timeout 已固化为代码常量，不暴露）。
 
 ## 接口契约（测试平台）
 
