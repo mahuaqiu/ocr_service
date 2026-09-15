@@ -7,6 +7,7 @@ OCR 识别文本替换配置。
 
 import logging
 import re
+from datetime import datetime
 from typing import Dict, Optional, Tuple
 
 import httpx
@@ -18,6 +19,9 @@ logger = logging.getLogger(__name__)
 # 单趟替换保证 1) 最长匹配优先（与配置顺序无关）2) 替换结果不会被其它 key 再次扫描。
 _replace_state: Tuple[Dict[str, str], Optional[re.Pattern]] = ({}, None)
 
+# 上次成功应用替换配置的时间（ISO 格式）；None 表示尚未拉到过配置
+_last_updated_at: Optional[str] = None
+
 
 def get_replace_map() -> Dict[str, str]:
     """获取当前替换字典。"""
@@ -26,7 +30,7 @@ def get_replace_map() -> Dict[str, str]:
 
 def set_replace_map(mapping: Dict[str, str]) -> None:
     """设置替换字典（空 key 直接过滤，预编译单趟替换模式）。"""
-    global _replace_state
+    global _replace_state, _last_updated_at
     rules = {key: value for key, value in mapping.items() if key}
     if rules:
         alternation = "|".join(
@@ -36,6 +40,13 @@ def set_replace_map(mapping: Dict[str, str]) -> None:
     else:
         pattern = None
     _replace_state = (rules, pattern)
+    _last_updated_at = datetime.now().isoformat(timespec="seconds")
+
+
+def get_replace_stats() -> Dict[str, Optional[object]]:
+    """当前规则数与上次成功应用配置的时间（供 /health 诊断"为什么没替换"）。"""
+    rules, _ = _replace_state
+    return {"rules": len(rules), "updated_at": _last_updated_at}
 
 
 def apply_replacements(text: str) -> str:

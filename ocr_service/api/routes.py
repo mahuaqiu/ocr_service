@@ -28,6 +28,7 @@ from ocr_service.api.schemas import (
 from ocr_service.core.ocr_engine import get_ocr_engine
 from ocr_service.core.image_matcher import get_image_matcher
 from ocr_service.models.ocr_result import remove_spaces
+from ocr_service.text_replacer import get_replace_stats
 
 router = APIRouter()
 
@@ -81,9 +82,15 @@ async def health_check():
     健康检查。
 
     Returns:
-        HealthResponse: 服务状态。
+        HealthResponse: 服务状态，含替换配置诊断信息（规则数/上次应用时间）。
     """
-    return HealthResponse(status="healthy", version=__version__)
+    stats = get_replace_stats()
+    return HealthResponse(
+        status="healthy",
+        version=__version__,
+        replace_rules=stats["rules"],
+        replace_config_updated_at=stats["updated_at"],
+    )
 
 
 @router.post("/ocr/get_ocr_infos", response_model=OCRResponse, tags=["OCR"])

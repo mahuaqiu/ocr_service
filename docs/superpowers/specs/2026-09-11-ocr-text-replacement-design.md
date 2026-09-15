@@ -10,14 +10,14 @@ OCR 识别偶发错字（「允许」→「充许」、「聊天」→「聊关�
 ## 需求点
 
 1. **启动拉取**：服务启动时从平台拉取 `ocr_config`（重试 3 次，失败不阻塞启动）。
-2. **识别替换**：`recognize()` 解析出 TextBlock 后立即对每个 text 应用替换（早于一切 `reg_`/exact 匹配；`find_text`/`find_all_texts`/`get_text_center` 经由 recognize 自动覆盖）。
+2. **识别替换**：`recognize()` 解析出 TextBlock 后立即对每个 text 应用替换（早于一切 `reg_`/exact 匹配；全部匹配接口都经由 `recognize()` 产出 TextBlock，替换天然全覆盖。注：`find_text`/`find_all_texts`/`get_text_center` 便捷方法已在 2026-09 死代码清理中移除）。
 3. **定时刷新**：每天本地时间 12:00 拉取；失败每 10 分钟重试直到成功；成功前保留旧配置。
 
 ## 实现
 
 - 新文件 `ocr_service/text_replacer.py`：
-  - 替换字典单例 `get_replace_map()/set_replace_map()`（空字典=直通不替换）；
-  - `apply_replacements(text)`：按配置顺序逐对 `str.replace(键, 值)`；
+  - 替换字典单例 `get_replace_map()/set_replace_map()`（空字典=直通不替换，空 key 过滤）；
+  - `apply_replacements(text)`：按 key 长度降序预编译 alternation，单趟 `re.sub` —— 最长匹配优先、与配置顺序无关、替换结果不会被其它 key 再次扫描（避免 链式污染，如 `{"聊关":"聊天","天":"无"}` 不得把「聊关」变成「聊无」）；
   - `fetch_replace_map()`（async httpx）：`GET {OCR_CONFIG_CENTER_URL}?key={OCR_CONFIG_CENTER_KEY}`，校验 `dict[str,str]`；
   - `refresh_replace_map()`：成功换新 + `[CONFIG]` INFO 日志，失败保旧 + ERROR 日志。
 - `config.py` 新增：`OCR_CONFIG_CENTER_URL`（空=禁用）/ `OCR_CONFIG_CENTER_KEY`（默认 ocr_config）/ `OCR_CONFIG_CENTER_TIMEOUT`（默认 5s）。

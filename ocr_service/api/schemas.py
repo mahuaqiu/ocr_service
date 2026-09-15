@@ -198,3 +198,6 @@ class HealthResponse(BaseModel):
 
     status: str
     version: str
+    # 替换配置诊断：便于排查"为什么没替换"（规则数为 0 = 未拉到配置或被禁用）
+    replace_rules: int = 0
+    replace_config_updated_at: Optional[str] = None
