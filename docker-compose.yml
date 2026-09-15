@@ -60,7 +60,7 @@ services:
 
       # ==================== 配置中心（测试平台）替换配置 ====================
       # 平台免鉴权查询地址（注释或留空=禁用替换功能），例如:
-      # - OCR_CONFIG_CENTER_URL=http://192.168.0.100:8000/api/public/config-center/query
+      - OCR_CONFIG_CENTER_URL=http://192.168.0.102:8000/api/public/config-center/query
       # 拉取的配置键
       - OCR_CONFIG_CENTER_KEY=ocr_config
       # 请求超时（秒）
