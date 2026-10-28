@@ -173,55 +173,27 @@ def test_refresh_replace_map_failure_keeps_old(monkeypatch):
     assert apply_replacements("充许") == "允许"
 
 
-# ---------------- _seconds_until_next_noon ----------------
-
-def test_seconds_until_next_noon_before_noon():
-    from datetime import datetime
-
-    from ocr_service.server import _seconds_until_next_noon
-
-    assert _seconds_until_next_noon(datetime(2026, 9, 11, 6, 0, 0)) == 6 * 3600
-
-
-def test_seconds_until_next_noon_after_noon():
-    from datetime import datetime
-
-    from ocr_service.server import _seconds_until_next_noon
-
-    assert _seconds_until_next_noon(datetime(2026, 9, 11, 13, 0, 0)) == 23 * 3600
-
-
-def test_seconds_until_next_noon_exactly_noon():
-    from datetime import datetime
-
-    from ocr_service.server import _seconds_until_next_noon
-
-    assert _seconds_until_next_noon(datetime(2026, 9, 11, 12, 0, 0)) == 24 * 3600
-
-
-# ---------------- 启动拉取失败后的重试节奏 ----------------
+# ---------------- 定时同步节奏 ----------------
 
 
 class _StopLoop(Exception):
     pass
 
 
-def test_next_refresh_wait_after_failure_retries_in_10_minutes(monkeypatch):
+def test_next_refresh_wait_after_failure_retries_in_10_minutes():
     from ocr_service import server
 
-    monkeypatch.setattr(server, "_seconds_until_next_noon", lambda: 99999.0)
     assert server._next_refresh_wait(False) == 600.0
 
 
-def test_next_refresh_wait_after_success_waits_until_next_noon(monkeypatch):
+def test_next_refresh_wait_after_success_waits_30_minutes():
     from ocr_service import server
 
-    monkeypatch.setattr(server, "_seconds_until_next_noon", lambda: 3600.0)
-    assert server._next_refresh_wait(True) == 3600.0
+    assert server._next_refresh_wait(True) == 30 * 60.0
 
 
 def test_config_refresh_loop_retries_soon_after_failed_startup(monkeypatch):
-    """启动拉取失败后，首次重试应在 10 分钟内，而不是等到下一个 12:00。"""
+    """启动拉取失败后，首次重试应在 10 分钟内，而不是等一个完整同步间隔。"""
     from ocr_service import server
 
     waits = []
@@ -236,7 +208,6 @@ def test_config_refresh_loop_retries_soon_after_failed_startup(monkeypatch):
 
     monkeypatch.setattr(server.asyncio, "sleep", fake_sleep)
     monkeypatch.setattr(server, "refresh_replace_map", fake_refresh)
-    monkeypatch.setattr(server, "_seconds_until_next_noon", lambda: 86400.0)
 
     with pytest.raises(_StopLoop):
         asyncio.run(
@@ -244,7 +215,7 @@ def test_config_refresh_loop_retries_soon_after_failed_startup(monkeypatch):
         )
 
     assert waits[0] == 600.0  # 失败 → 10 分钟后首次重试
-    assert waits[1] == 86400.0  # 成功 → 等到次日 12:00
+    assert waits[1] == 30 * 60.0  # 成功 → 30 分钟后再次同步
 
 
 def test_pull_config_on_startup_returns_success_flag(monkeypatch):

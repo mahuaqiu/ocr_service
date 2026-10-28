@@ -46,7 +46,7 @@ pip install -r requirements.txt
 ocr_service/
 ├── server.py          # FastAPI 应用入口，创建 app 实例
 ├── config.py          # 配置管理，支持环境变量
-├── text_replacer.py   # 识别文本替换（配置中心拉取 + 启动/每日12点同步）
+├── text_replacer.py   # 识别文本替换（配置中心拉取 + 启动/每30分钟同步）
 ├── api/
 │   ├── routes.py      # API 路由定义
 │   └── schemas.py     # Pydantic 请求/响应模型

@@ -18,7 +18,6 @@ import json
 import os
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
 from logging.handlers import RotatingFileHandler
 from typing import Any
 
@@ -227,29 +226,23 @@ def setup_logging():
     console_handler.setFormatter(console_formatter)
     app_logger.addHandler(console_handler)
 
-def _seconds_until_next_noon(now: datetime = None) -> float:
-    """距下一个本地时间 12:00 的秒数。"""
-    now = now or datetime.now()
-    target = now.replace(hour=12, minute=0, second=0, microsecond=0)
-    if target <= now:
-        target += timedelta(days=1)
-    return (target - now).total_seconds()
-
-
 # 拉取失败后的重试间隔（秒）
 CONFIG_REFRESH_RETRY_INTERVAL = 10 * 60
 
+# 定时同步间隔（秒）
+CONFIG_REFRESH_INTERVAL = 30 * 60
+
 
 def _next_refresh_wait(last_success: bool) -> float:
-    """下次拉取的等待秒数：成功等到下一个 12:00，失败 10 分钟后重试。"""
-    return _seconds_until_next_noon() if last_success else CONFIG_REFRESH_RETRY_INTERVAL
+    """下次拉取的等待秒数：成功等 30 分钟，失败 10 分钟后重试。"""
+    return CONFIG_REFRESH_INTERVAL if last_success else CONFIG_REFRESH_RETRY_INTERVAL
 
 
 async def _config_refresh_loop(url: str, startup_success: bool) -> None:
-    """拉取替换配置：失败 10 分钟后重试，成功后每天 12:00 定时同步。
+    """拉取替换配置：失败 10 分钟后重试，成功后每 30 分钟定时同步。
 
     startup_success 为启动拉取的结果；为 False 时首次尝试在 10 分钟内，
-    而不是等到下一个 12:00。
+    而不是等一个完整的同步间隔。
     """
     wait_seconds = _next_refresh_wait(startup_success)
     while True:
@@ -272,7 +265,7 @@ async def _pull_config_on_startup(url: str) -> bool:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    """应用生命周期：启动拉取替换配置，并注册每日 12:00 定时刷新任务。"""
+    """应用生命周期：启动拉取替换配置，并注册每 30 分钟定时刷新任务。"""
     config = get_config()
     refresh_task = None
     if config.config_center_url:
