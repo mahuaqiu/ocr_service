@@ -37,6 +37,32 @@ class TextBlock:
     center: Point
 
 
+# 同行判定阈值：块中心 y 与所在行首个块中心 y 的差值不超过该像素数视为同一行
+LINE_Y_THRESHOLD = 30
+
+
+def sort_by_line(texts: List[TextBlock]) -> List[TextBlock]:
+    """按行重排文字块：行间从上到下，行内从左到右。
+
+    先按中心 y 排序，再以 LINE_Y_THRESHOLD 为同行阈值分组，行内按中心 x 排列。
+    """
+    if len(texts) <= 1:
+        return list(texts)
+
+    sorted_by_y = sorted(texts, key=lambda t: (t.center.y, t.center.x))
+    lines: List[List[TextBlock]] = []
+    for block in sorted_by_y:
+        if lines and block.center.y - lines[-1][0].center.y <= LINE_Y_THRESHOLD:
+            lines[-1].append(block)
+        else:
+            lines.append([block])
+
+    result: List[TextBlock] = []
+    for line in lines:
+        result.extend(sorted(line, key=lambda t: t.center.x))
+    return result
+
+
 @dataclass
 class OCRResult:
     """OCR 识别结果。"""
@@ -112,4 +138,4 @@ class OCRResult:
                 )
                 texts.append(text_block)
 
-        return texts
+        return sort_by_line(texts)
