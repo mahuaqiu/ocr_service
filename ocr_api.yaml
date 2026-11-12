@@ -530,6 +530,20 @@ components:
           type: string
           nullable: true
           description: 错误信息
+        not_found_reason:
+          type: string
+          nullable: true
+          description: 未找到原因 below_threshold/color_check_failed/no_text_recognized/text_not_found/template_not_matched/distance_exceeded（status=success 且结果为空时返回）
+        best_confidence:
+          type: number
+          format: float
+          nullable: true
+          description: 未命中时的最高相似度/特征分
+        nearest_distance:
+          type: number
+          format: float
+          nullable: true
+          description: 最近候选距离（像素），仅 match_near_text 距离超限时返回
       required:
         - status
 
@@ -549,6 +563,20 @@ components:
           type: string
           nullable: true
           description: 错误信息
+        not_found_reason:
+          type: string
+          nullable: true
+          description: 未找到原因 below_threshold/color_check_failed/no_text_recognized/text_not_found/template_not_matched/distance_exceeded（status=success 且结果为空时返回）
+        best_confidence:
+          type: number
+          format: float
+          nullable: true
+          description: 未命中时的最高相似度/特征分
+        nearest_distance:
+          type: number
+          format: float
+          nullable: true
+          description: 最近候选距离（像素），仅 match_near_text 距离超限时返回
       required:
         - status
 
@@ -575,6 +603,20 @@ components:
           type: string
           nullable: true
           description: 错误信息
+        not_found_reason:
+          type: string
+          nullable: true
+          description: 未找到原因 below_threshold/color_check_failed/no_text_recognized/text_not_found/template_not_matched/distance_exceeded（status=success 且结果为空时返回）
+        best_confidence:
+          type: number
+          format: float
+          nullable: true
+          description: 未命中时的最高相似度/特征分
+        nearest_distance:
+          type: number
+          format: float
+          nullable: true
+          description: 最近候选距离（像素），仅 match_near_text 距离超限时返回
       required:
         - status
 
@@ -608,5 +650,19 @@ components:
           type: string
           nullable: true
           description: 错误信息
+        not_found_reason:
+          type: string
+          nullable: true
+          description: 未找到原因 below_threshold/color_check_failed/no_text_recognized/text_not_found/template_not_matched/distance_exceeded（status=success 且结果为空时返回）
+        best_confidence:
+          type: number
+          format: float
+          nullable: true
+          description: 未命中时的最高相似度/特征分
+        nearest_distance:
+          type: number
+          format: float
+          nullable: true
+          description: 最近候选距离（像素），仅 match_near_text 距离超限时返回
       required:
         - status

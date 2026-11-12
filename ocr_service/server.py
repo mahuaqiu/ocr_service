@@ -108,17 +108,16 @@ def format_response_log(request: Request, response_body: Any, status_code: int) 
     lines = [f"[RESPONSE] {request.method} {request.url.path} -> {status_code}"]
 
     if isinstance(response_body, dict):
-        # 只记录关键字段
-        for key in ["status", "texts", "coords", "duration_ms", "error", "text", "matches"]:
-            if key in response_body:
-                value = response_body[key]
-                if key == "texts":
-                    value = f"[{len(value)} items]" if isinstance(value, list) else value
-                elif key == "coords":
-                    value = f"[{len(value)} items]" if isinstance(value, list) else value
-                elif key == "matches":
-                    value = f"[{len(value)} items]" if isinstance(value, list) else value
-                lines.append(f"  {key}: {value}")
+        # 只记录关键字段（ocr_info 记条数，未命中诊断字段原样输出）
+        list_keys = {"texts", "coords", "matches", "ocr_info"}
+        for key in ["status", "texts", "coords", "duration_ms", "error", "text", "matches",
+                    "ocr_info", "not_found_reason", "best_confidence", "nearest_distance"]:
+            if key not in response_body or response_body[key] is None:
+                continue
+            value = response_body[key]
+            if key in list_keys and isinstance(value, list):
+                value = f"[{len(value)} items]"
+            lines.append(f"  {key}: {value}")
     else:
         lines.append(f"  body: {truncate_base64(response_body)}")
 
