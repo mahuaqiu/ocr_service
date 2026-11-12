@@ -3,6 +3,7 @@
 """
 
 import base64
+import binascii
 from typing import Optional, Tuple
 
 import cv2
@@ -14,20 +15,36 @@ def decode_image(image_data: bytes | str) -> np.ndarray:
 
     Args:
         image_data: 图像字节数据或 Base64 编码字符串。
+            字符串支持 "data:image/...;base64," 前缀（ocr_api.yaml 已声明）。
 
     Returns:
         np.ndarray: OpenCV 图像数组 (BGR 格式)。
+
+    Raises:
+        ValueError: 区分三种失败——空数据 / Base64 非法 / 无法解码（格式不支持或损坏），
+            消息中带输入长度，方便下游定位。
     """
     if isinstance(image_data, str):
-        # Base64 解码
-        image_data = base64.b64decode(image_data)
+        # 兼容 data URI 前缀
+        if image_data.startswith("data:image"):
+            _, _, image_data = image_data.partition(",")
+        if not image_data:
+            raise ValueError("图片数据为空")
+        input_chars = len(image_data)
+        try:
+            image_data = base64.b64decode(image_data, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise ValueError(f"Base64 解码失败（输入 {input_chars} 字符）: {e}") from e
+
+    if not image_data:
+        raise ValueError("图片数据为空")
 
     # 转换为 numpy 数组
     np_array = np.frombuffer(image_data, np.uint8)
     image = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
 
     if image is None:
-        raise ValueError("Failed to decode image")
+        raise ValueError(f"图片解码失败（{len(image_data)} 字节，格式不支持或数据损坏）")
 
     return image
 
