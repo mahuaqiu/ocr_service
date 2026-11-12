@@ -106,6 +106,12 @@ class OCRResponse(BaseModel):
     ocr_info: list[OCRInfoItem] = []  # OCR识别信息（文字+坐标，不含置信度）
     duration_ms: int = 0
     error: Optional[str] = None
+    not_found_reason: Optional[str] = Field(
+        default=None,
+        description="未找到原因: below_threshold/color_check_failed/no_text_recognized/text_not_found/template_not_matched/distance_exceeded",
+    )
+    best_confidence: Optional[float] = Field(default=None, description="未命中时的最高相似度/特征分")
+    nearest_distance: Optional[float] = Field(default=None, description="match_near_text：最近候选距离（像素）")
 
 
 class OCRTextRequest(BaseModel):
@@ -135,6 +141,12 @@ class OCRTextResponse(BaseModel):
     ocr_info: list[OCRInfoItem] = []  # OCR识别信息（文字+坐标，不含置信度）
     duration_ms: int = 0
     error: Optional[str] = None
+    not_found_reason: Optional[str] = Field(
+        default=None,
+        description="未找到原因: below_threshold/color_check_failed/no_text_recognized/text_not_found/template_not_matched/distance_exceeded",
+    )
+    best_confidence: Optional[float] = Field(default=None, description="未命中时的最高相似度/特征分")
+    nearest_distance: Optional[float] = Field(default=None, description="match_near_text：最近候选距离（像素）")
 
 
 # ==================== 图像匹配接口 ====================
@@ -161,6 +173,12 @@ class ImageMatchResponse(BaseModel):
     coords: list[PointModel] = []  # 简洁的坐标数组
     duration_ms: int = 0
     error: Optional[str] = None
+    not_found_reason: Optional[str] = Field(
+        default=None,
+        description="未找到原因: below_threshold/color_check_failed/no_text_recognized/text_not_found/template_not_matched/distance_exceeded",
+    )
+    best_confidence: Optional[float] = Field(default=None, description="未命中时的最高相似度/特征分")
+    nearest_distance: Optional[float] = Field(default=None, description="match_near_text：最近候选距离（像素）")
 
 
 class TextNearImageRequest(BaseModel):
@@ -189,6 +207,12 @@ class TextNearImageResponse(BaseModel):
     distance: Optional[int] = Field(default=None, description="距离（像素）")
     duration_ms: int = 0
     error: Optional[str] = None
+    not_found_reason: Optional[str] = Field(
+        default=None,
+        description="未找到原因: below_threshold/color_check_failed/no_text_recognized/text_not_found/template_not_matched/distance_exceeded",
+    )
+    best_confidence: Optional[float] = Field(default=None, description="未命中时的最高相似度/特征分")
+    nearest_distance: Optional[float] = Field(default=None, description="match_near_text：最近候选距离（像素）")
 
 
 # ==================== 健康检查 ====================

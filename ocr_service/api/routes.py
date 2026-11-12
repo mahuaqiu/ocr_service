@@ -3,6 +3,7 @@ API 路由定义。
 """
 
 import asyncio
+import logging
 import math
 import re
 
@@ -29,6 +30,8 @@ from ocr_service.core.ocr_engine import get_ocr_engine
 from ocr_service.core.image_matcher import get_image_matcher
 from ocr_service.models.ocr_result import remove_spaces
 from ocr_service.text_replacer import get_replace_stats
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -203,13 +206,26 @@ async def ocr_get_coord_by_text(request: OCRRequest):
         for t in result.texts
     ]
 
-    if result.status != "success" or not result.texts:
+    if result.status != "success":
+        logger.error(f"[OCR] engine error: {result.error}")
+        return OCRResponse(
+            status="error",
+            texts=[],
+            coords=[],
+            ocr_info=all_ocr_info,
+            duration_ms=result.duration_ms,
+            error=result.error,
+        )
+
+    if not result.texts:
+        logger.info(f"[OCR] no text recognized: filter_text=\"{request.filter_text}\" recognized=0")
         return OCRResponse(
             status="success",
             texts=[],
             coords=[],
             ocr_info=all_ocr_info,
             duration_ms=result.duration_ms,
+            not_found_reason="no_text_recognized",
         )
 
     # 根据 match_mode 过滤
@@ -234,12 +250,17 @@ async def ocr_get_coord_by_text(request: OCRRequest):
     duration_ms = result.duration_ms
 
     if not text_blocks:
+        logger.info(
+            f"[OCR] text not found: filter_text=\"{request.filter_text}\" "
+            f"recognized={len(all_ocr_info)}"
+        )
         return OCRResponse(
             status="success",
             texts=[],
             coords=[],
             ocr_info=all_ocr_info,
             duration_ms=duration_ms,
+            not_found_reason="text_not_found",
         )
 
     return OCRResponse(
@@ -356,6 +377,8 @@ async def image_match(request: ImageMatchRequest):
         ],
         duration_ms=result.duration_ms,
         error=result.error,
+        not_found_reason=result.not_found_reason,
+        best_confidence=result.best_confidence,
     )
 
 
@@ -433,6 +456,7 @@ async def image_match_near_text(request: TextNearImageRequest):
             coords=[],
             ocr_info=all_ocr_info,
             distance=None,
+            not_found_reason="text_not_found",
             duration_ms=int((time.time() - start_time) * 1000),
         )
 
@@ -456,6 +480,8 @@ async def image_match_near_text(request: TextNearImageRequest):
             coords=[],
             ocr_info=all_ocr_info,
             distance=None,
+            not_found_reason="template_not_matched",
+            best_confidence=match_result.best_confidence,
             duration_ms=int((time.time() - start_time) * 1000),
         )
 
@@ -470,6 +496,7 @@ async def image_match_near_text(request: TextNearImageRequest):
     ]
 
     if not valid_matches:
+        nearest = min(calc_distance(m) for m in match_result.matches)
         return TextNearImageResponse(
             status="success",
             text_position=PointModel(x=text_center.x, y=text_center.y),
@@ -477,6 +504,8 @@ async def image_match_near_text(request: TextNearImageRequest):
             coords=[],
             ocr_info=all_ocr_info,
             distance=None,
+            not_found_reason="distance_exceeded",
+            nearest_distance=float(nearest),
             duration_ms=int((time.time() - start_time) * 1000),
         )
 
