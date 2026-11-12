@@ -171,6 +171,7 @@ class ImageMatcher:
                     status="success",
                     matches=[],
                     duration_ms=int((time.time() - start_time) * 1000),
+                    not_found_reason="template_not_matched",
                 )
 
             source_gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
@@ -201,6 +202,19 @@ class ImageMatcher:
                 )
 
             duration_ms = int((time.time() - start_time) * 1000)
+            if not matches:
+                reason = "below_threshold" if gray_score < threshold else "color_check_failed"
+                logger.info(
+                    f"[MATCH] done hits=0 reason={reason} "
+                    f"best={gray_score:.4f} thr={threshold} duration_ms={duration_ms}"
+                )
+                return ImageMatchResult(
+                    status="success",
+                    matches=[],
+                    duration_ms=duration_ms,
+                    not_found_reason=reason,
+                    best_confidence=round(gray_score, 4),
+                )
             logger.info(
                 f"[MATCH] done hits={len(matches)} duration_ms={duration_ms}"
                 + (
@@ -261,6 +275,7 @@ class ImageMatcher:
                     status="success",
                     matches=[],
                     duration_ms=int((time.time() - start_time) * 1000),
+                    not_found_reason="template_not_matched",
                 )
 
             source_gray = cv2.cvtColor(source, cv2.COLOR_BGR2GRAY)
@@ -315,9 +330,21 @@ class ImageMatcher:
                     matches.append(verified)
 
             duration_ms = int((time.time() - start_time) * 1000)
-            logger.info(
-                f"[MATCH] done hits={len(matches)} duration_ms={duration_ms}"
-            )
+            if not matches:
+                best = float(np.max(result)) if result.size else 0.0
+                reason = "color_check_failed" if rectangles else "below_threshold"
+                logger.info(
+                    f"[MATCH] done hits=0 reason={reason} "
+                    f"best={best:.4f} thr={threshold} duration_ms={duration_ms}"
+                )
+                return ImageMatchResult(
+                    status="success",
+                    matches=[],
+                    duration_ms=duration_ms,
+                    not_found_reason=reason,
+                    best_confidence=round(best, 4),
+                )
+            logger.info(f"[MATCH] done hits={len(matches)} duration_ms={duration_ms}")
             return ImageMatchResult(
                 status="success", matches=matches, duration_ms=duration_ms
             )
@@ -373,6 +400,7 @@ class ImageMatcher:
                     status="success",
                     matches=[],
                     duration_ms=duration_ms,
+                    not_found_reason="below_threshold",
                 )
 
             # 使用 FLANN 匹配器
@@ -390,6 +418,8 @@ class ImageMatcher:
                     good_matches.append(m)
 
             result_matches = []
+            # 仅在进入单应性分支后被赋值；未进入时最终返回用 None 兜底
+            confidence = None
 
             # 需要至少 4 个好的匹配点才能计算单应性矩阵
             if len(good_matches) >= 4:
@@ -441,7 +471,14 @@ class ImageMatcher:
                         )
 
             duration_ms = int((time.time() - start_time) * 1000)
-
+            if not result_matches:
+                return ImageMatchResult(
+                    status="success",
+                    matches=[],
+                    duration_ms=duration_ms,
+                    not_found_reason="below_threshold",
+                    best_confidence=round(confidence, 4) if confidence is not None else None,
+                )
             return ImageMatchResult(
                 status="success",
                 matches=result_matches,
