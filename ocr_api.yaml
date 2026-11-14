@@ -357,7 +357,8 @@ components:
         filter_text:
           type: string
           nullable: true
-          description: 过滤关键词，只返回包含此文字的结果
+          description: |
+            过滤关键词，匹配规则与 get_coord_by_text 一致：精确匹配优先（存在完全相等的块时只返回这些块），无精确匹配时降级为包含匹配；以 "reg_" 开头为正则表达式
         confidence_threshold:
           type: number
           format: float

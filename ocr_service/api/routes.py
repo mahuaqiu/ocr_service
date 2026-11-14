@@ -74,6 +74,11 @@ def filter_texts(texts: list, filter_text: str) -> list:
             # 正则表达式无效，回退到包含匹配
             return [t for t in texts if pattern_normalized in remove_spaces(t.text)]
     else:
+        # 精确匹配优先：先找完全相等，与 get_coord_by_text 行为一致
+        exact_matches = [t for t in texts if remove_spaces(t.text) == pattern_normalized]
+        if exact_matches:
+            return exact_matches
+        # 无精确匹配时降级为包含匹配
         return [t for t in texts if pattern_normalized in remove_spaces(t.text)]
 
 
